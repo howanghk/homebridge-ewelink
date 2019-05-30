@@ -164,7 +164,7 @@ function eWeLink(log, config, api) {
                             
                             switch(deviceInformationFromWebApi.extra.extra.model) {
                                 case 'PSF-B04-GL' :
-                                    switchesAmount = 3;
+                                    switchesAmount = 4;
                                     break;
                                 case 'PSB-B04-GL' :
                                     switchesAmount = 2;
@@ -197,7 +197,7 @@ function eWeLink(log, config, api) {
 
                             switch(deviceToAdd.extra.extra.model) {
                                 case 'PSF-B04-GL' :
-                                    switchesAmount = 3;
+                                    switchesAmount = 4;
                                     break;
                                 case 'PSB-B04-GL' :
                                     switchesAmount = 2;
@@ -516,7 +516,7 @@ eWeLink.prototype.addAccessory = function(device, deviceId = null, services = { 
 
     switch(device.extra.extra.model) {
         case 'PSF-B04-GL' :
-             accessory.context.switches = 3;
+             accessory.context.switches = 4;
             break;
         case 'PSB-B04-GL' :
             accessory.context.switches = 2;
