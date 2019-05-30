@@ -161,6 +161,19 @@ function eWeLink(log, config, api) {
                             accessory.getService(Service.AccessoryInformation).setCharacteristic(Characteristic.Model, deviceInformationFromWebApi.extra.extra.model + ' (' + deviceInformationFromWebApi.uiid + ')');
                             accessory.getService(Service.AccessoryInformation).setCharacteristic(Characteristic.FirmwareRevision, deviceInformationFromWebApi.params.fwVersion);
 
+                            
+                            switch(deviceInformationFromWebApi.extra.extra.model) {
+                                case 'PSF-B04-GL' :
+                                    switchesAmount = 3;
+                                    break;
+                                case 'PSB-B04-GL' :
+                                    switchesAmount = 2;
+                                    break;
+                                case 'PSF-A04-GL' :
+                                    switchesAmount = 4;
+                                    break;
+                            }
+                            
                             if(switchesAmount > 1) {
                                 platform.log(switchesAmount + " channels device has been set: " + deviceInformationFromWebApi.extra.extra.model + ' uiid: ' + deviceInformationFromWebApi.uiid);
                                 for(let i=0; i!==switchesAmount; i++) {
@@ -182,6 +195,18 @@ function eWeLink(log, config, api) {
                             let deviceToAdd = platform.devicesFromApi.get(deviceId);
                             let switchesAmount = platform.getDeviceChannelCount(deviceToAdd);
 
+                            switch(deviceToAdd.extra.extra.model) {
+                                case 'PSF-B04-GL' :
+                                    switchesAmount = 3;
+                                    break;
+                                case 'PSB-B04-GL' :
+                                    switchesAmount = 2;
+                                    break;
+                                case 'PSF-A04-GL' :
+                                    switchesAmount = 4;
+                                    break;
+                            }
+                            
                             let services = {};
                             services.switch = true;
 
@@ -202,6 +227,8 @@ function eWeLink(log, config, api) {
                                 platform.addAccessory(deviceToAdd, null, services);
                             }
                         }
+                        
+                        
                     }
 
                     // Go through the web response to make sure that all the devices that are in the response do exist in the accessories map
@@ -487,6 +514,18 @@ eWeLink.prototype.addAccessory = function(device, deviceId = null, services = { 
         accessory.context.switches = switchesAmount;
     }
 
+    switch(device.extra.extra.model) {
+        case 'PSF-B04-GL' :
+             accessory.context.switches = 3;
+            break;
+        case 'PSB-B04-GL' :
+            accessory.context.switches = 2;
+            break;
+        case 'PSF-A04-GL' :
+            accessory.context.switches = 4;
+            break;
+    }
+    
     this.accessories.set(device.deviceid, accessory);
 
     this.api.registerPlatformAccessories("homebridge-eWeLink",
