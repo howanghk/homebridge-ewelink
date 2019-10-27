@@ -19,6 +19,7 @@ This fork have the following notable changes / improvements:
 * Support login with phone number / email and password, which save your time from obtaining the authentication token with Charles once in a while.
 * Support sending heartbeat on the WebSocket connection, which greatly reduce the interval of reconnects, hence better stability.
 * Support obtaining the correct API / WebSocket API host automatically, so you don't need to obtain these information with Charles.
+* Support for groups to simulate accessory. Currrently only blind (WindowCovering) is supported.
 
 ## Shortcomings
 
@@ -29,7 +30,8 @@ The code is of suboptimal quality. It was a quick-and-dirty plugin; feel free to
 *Assuming that you've already downloaded the eWeLink app on your iOS device & have configured it:*
 
 1) Install the plugin
-```
+
+```bash
 sudo npm -g install homebridge-ewelink-max
 ```
 
@@ -44,7 +46,7 @@ sudo npm -g install homebridge-ewelink-max
 
 ### Sample config.json
 
-```
+```json
 {
     "bridge": {
         "name": "Homebridge",
@@ -52,7 +54,7 @@ sudo npm -g install homebridge-ewelink-max
         "port": 51826,
         "pin": "123-45-678"
     },
-    
+
     "description": "Your description here",
 
     "accessories": [
@@ -72,7 +74,7 @@ sudo npm -g install homebridge-ewelink-max
 
 If you use email login, the platform section should look like this:
 
-```
+```json
         {
             "platform" : "eWeLink",
             "name" : "eWeLink",
@@ -82,7 +84,57 @@ If you use email login, the platform section should look like this:
         }
 ```
 
-### A note on login session
+### Groups
+
+You can group channels of multi-switch model to simulate another accessory instead of having each switch separately.
+Currently, only blind (WindowCovering) is supported.
+
+#### Blind
+
+*(Tested with Sonoff Dual)*
+Simulate  dual motors blind, one to move up and other to move down, without start or end detector.
+The duration of move is calculed from the up/down time.
+Handle realtime response when setting position other than *Open* or *Close*.
+Also responding to event from API, so you can use Home or eWelink App and have up-to-date state.
+The device is automatically reconfigured to turn off all options (power-on response, inching, ...) including disable Interlock that is incompatible with the behavior of this group.
+
+*To improve: 4 channels models can only use 2 channels, others will be disabled.*
+
+##### Group configuration:
+
+* **type** : blind
+* **deviceId** : Device ID from eWelink app
+* **relay_up**: Relay number for the UP motor
+* **relay_down**: Relay number for the DOWN motor
+* **time_up**: Total time in second from complete closing to full opening.
+* **time_down**: Total time in second from complete opening to full closing.
+* **handle_api_changes**: In case you don't want group respond to eWeLink App changes. Default _true_.
+* Please refer to [homebridge-sonoff-stateful-blind](https://github.com/manolab/homebridge-sonoff-stateful-blinds#readme) project for explanations of the last two options.
+
+```json
+    {
+        "platform" : "eWeLink",
+        "name" : "eWeLink",
+        "email" : "your-email@example.com",
+        "password" : "your-login-password",
+        "imei" : "01234567-89AB-CDEF-0123-456789ABCDEF",
+        "groups": [
+            {
+                "type": "blind",
+                "deviceId": "1000654321",
+                "relay_up": 1,
+                "relay_down": 2,
+                "time_up": 10,
+                "time_down": 10,
+                "time_botton_margin_up": 0,
+                "time_botton_margin_down": 0,
+                "handle_api_changes": true
+            }
+        ]
+    }
+```
+
+## A note on login session
 
 An authentication token is generated every time your device's app logs in to the eWeLink service.
 
@@ -90,7 +142,7 @@ You can only have one authentication token per user account.
 
 Therefore if you use the HomeKit app and eWeLink app at the same time, they will fight each other for the login session. They should both work individually. You can leave homebridge running when using the eWeLink app.
 
-### To avoid being logged off from the eWeLink app
+### Use another login to avoid being logged off from the eWeLink app
 
 1. Create another account
 2. Then log in with the new account on another mobile device (you have to keep both accounts connected and with eWeLink on the screen).
@@ -99,13 +151,15 @@ Therefore if you use the HomeKit app and eWeLink app at the same time, they will
 5. Use the second account as your plugin login (and never use this account on eWeLink anymore to avoid being logged off)
 6. Be happy and never get a "session expired" message again.
 
+Each account is suitable for the plug-in, just make sure to use each once (one per mobile device / homebridge).
+
 ## Troubleshooting
 
 I've attempted to make the logging as useful as possible. If you have any suggestions, please open an issue on GitHub.
 
 ## Sample logging
 
-```
+```bash
 [12/13/2017, 9:39:05 PM] [eWeLink] A total of [1] accessories were loaded from the local cache
 [12/13/2017, 9:39:05 PM] [eWeLink] Requesting a list of devices from eWeLink HTTPS API at [https://us-api.coolkit.cc:8080]
 [12/13/2017, 9:39:06 PM] [eWeLink] eWeLink HTTPS API reports that there are a total of [1] devices registered
@@ -123,7 +177,8 @@ I've attempted to make the logging as useful as possible. If you have any sugges
 ```
 
 *Hey Siri, turn on the fan*
-```
+
+```bash
 [12/13/2017, 9:39:09 PM] [eWeLink] Setting power state to [on] for device [Fan]
 [12/13/2017, 9:39:09 PM] [eWeLink] WebSocket messge received:  {"error":0,"deviceid":"XXXXXXX","apikey":"XXXXXXX","sequence":"1513219149620"}
 [12/13/2017, 9:39:11 PM] [eWeLink] Setting power state to [off] for device [Fan]
@@ -133,13 +188,16 @@ I've attempted to make the logging as useful as possible. If you have any sugges
 The plugin will also listen for announcements via a persistent web socket. This allows you to control the device from the likes of Google Home & have Homebridge be kept up-to-date
 
 *Hey Google, turn on the fan*
-```
+
+```bash
 [12/13/2017, 9:41:50 PM] [eWeLink] Update message received for device [XXXXXXX]
 [12/13/2017, 9:41:50 PM] [eWeLink] Updating recorded Characteristic.On for [Fan] to [true]. No request will be sent to the device.
 [12/13/2017, 9:41:50 PM] [eWeLink] Setting power state to [on] for device [Fan]
 [12/13/2017, 9:41:50 PM] [eWeLink] WebSocket messge received:  {"error":0,"deviceid":"XXXXXXX","apikey":"XXXXXXX","sequence":"1513219310003"}
 ```
+
 ## Credits
 
-https://github.com/websockets/ws/wiki/Websocket-client-implementation-for-auto-reconnect
+<https://github.com/websockets/ws/wiki/Websocket-client-implementation-for-auto-reconnect>
 
+<https://github.com/manolab/homebridge-sonoff-stateful-blinds)>

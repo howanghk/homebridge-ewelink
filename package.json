@@ -1,10 +1,11 @@
 {
   "name": "homebridge-ewelink-max",
-  "version": "0.1.16",
+  "version": "0.2.0",
   "author": "gbro115",
   "contributors": [
     "Tomasz Bzymek",
-    "howanghk"
+    "howanghk",
+    "LeJeko"
   ],
   "description": "homebridge-eWeLink is a Homebrige plugin to control Sonoff relays running OEM firmware",
   "license": "MIT",
