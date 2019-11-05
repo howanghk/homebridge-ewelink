@@ -529,8 +529,8 @@ eWeLink.prototype.configureAccessory = function (accessory) {
             });
     }
 
-    if (accessory.getService(Service.Fanv2)) {
-        accessory.getService(Service.Fanv2).getCharacteristic(Characteristic.On)
+    if (accessory.getService(Service.Fan)) {
+        accessory.getService(Service.Fan).getCharacteristic(Characteristic.On)
             .on("get", function (callback) {
                 platform.getFanState(accessory, callback);
             })
@@ -539,7 +539,7 @@ eWeLink.prototype.configureAccessory = function (accessory) {
             });
 
         // This is actually the fan speed instead of rotation speed but homekit fan does not support this
-        accessory.getService(Service.Fanv2).getCharacteristic(Characteristic.RotationSpeed)
+        accessory.getService(Service.Fan).getCharacteristic(Characteristic.RotationSpeed)
             .setProps({
                 minStep: 3
             })
@@ -612,7 +612,7 @@ eWeLink.prototype.addAccessory = function (device, deviceId = null, services = {
     accessory.reachable = device.online === 'true';
 
     if (services.fan) {
-        var fan = accessory.addService(Service.Fanv2, device.name);
+        var fan = accessory.addService(Service.Fan, device.name);
         var light = accessory.addService(Service.Lightbulb, device.name + ' Light');
         light.getCharacteristic(Characteristic.On)
             .on("get", function (callback) {
@@ -982,10 +982,10 @@ eWeLink.prototype.updateFanSpeedCharacteristic = function (deviceId, state1, sta
     platform.log("Updating recorded Characteristic.On for [%s] to [%s]. No request will be sent to the device.", accessory.displayName, isOn);
     platform.log("Updating recorded Characteristic.RotationSpeed for [%s] to [%s]. No request will be sent to the device.", accessory.displayName, speed);
 
-    accessory.getService(Service.Fanv2)
+    accessory.getService(Service.Fan)
         .setCharacteristic(Characteristic.On, isOn);
 
-    accessory.getService(Service.Fanv2)
+    accessory.getService(Service.Fan)
         .setCharacteristic(Characteristic.RotationSpeed, speed);
 };
 
