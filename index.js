@@ -163,7 +163,7 @@ function eWeLink(log, config, api) {
                             } else {
                                 platform.log('[%s] Device is registered with API. ID: (%s). Nothing to do.', accessory.displayName, accessory.UUID);
                             }
-                        } else if (platform.devicesFromApi.has(realDeviceId) && platform.getDeviceTypeByUiid(platform.devicesFromApi.get(realDeviceId).uiid) === 'FAN_LIGHT' ) {
+                        } else if (platform.devicesFromApi.has(realDeviceId) && platform.getDeviceTypeByUiid(platform.devicesFromApi.get(realDeviceId).uiid) === 'FAN_LIGHT') {
                             platform.log('[%s] Device is registered with API. ID: (%s). Nothing to do.', accessory.displayName, accessory.UUID);
                         } else {
                             platform.log('Device [%s], ID : [%s] was not present in the response from the API. It will be removed.', accessory.displayName, accessory.UUID);
@@ -214,6 +214,7 @@ function eWeLink(log, config, api) {
                                     }
                                 } else if (deviceType === 'FAN_LIGHT') {
                                     platform.updateFanLightCharacteristic(deviceId, deviceInformationFromWebApi.params.switches[0].switch, platform.devicesFromApi.get(deviceId));
+                                    platform.updateFanSpeedCharacteristic(deviceId, deviceInformationFromWebApi.params.switches[1].switch, deviceInformationFromWebApi.params.switches[2].switch, deviceInformationFromWebApi.params.switches[3].switch, platform.devicesFromApi.get(deviceId));
                                 } else {
                                     platform.log(switchesAmount + " channels device has been set: " + deviceInformationFromWebApi.extra.extra.model + ' uiid: ' + deviceInformationFromWebApi.uiid);
                                     for (let i = 0; i !== switchesAmount; i++) {
@@ -319,7 +320,7 @@ function eWeLink(log, config, api) {
                             if (json.action === 'update') {
 
                                 platform.log("Update message received for device [%s]", json.deviceid);
-platform.log(json);
+                                platform.log(json);
 
                                 if (json.hasOwnProperty("params") && json.params.hasOwnProperty("switch")) {
                                     platform.updatePowerStateCharacteristic(json.deviceid, json.params.switch);
@@ -340,8 +341,10 @@ platform.log(json);
                                                 platform.log('Group type error ! Device ID : [%s] will not be updated.', json.deviceid);
                                                 break;
                                         }
-                                    } else if(platform.devicesFromApi.has(json.deviceid) && platform.getDeviceTypeByUiid(platform.devicesFromApi.get(json.deviceid).uiid) === 'FAN_LIGHT') {
+                                    } else if (platform.devicesFromApi.has(json.deviceid) && platform.getDeviceTypeByUiid(platform.devicesFromApi.get(json.deviceid).uiid) === 'FAN_LIGHT') {
                                         platform.updateFanLightCharacteristic(json.deviceid, json.params.switches[0].switch, platform.devicesFromApi.get(json.deviceid));
+                                        platform.devicesFromApi.get(json.deviceid).params.switches = json.params.switches;
+                                        platform.updateFanSpeedCharacteristic(json.deviceid, json.params.switches[1].switch, json.params.switches[2].switch, json.params.switches[3].switch, platform.devicesFromApi.get(json.deviceid));
                                     } else {
                                         json.params.switches.forEach(function (entry) {
                                             if (entry.hasOwnProperty('outlet') && entry.hasOwnProperty('switch')) {
@@ -526,28 +529,29 @@ eWeLink.prototype.configureAccessory = function (accessory) {
             });
     }
 
-    if (accessory.getService(Service.FanV2)) {
-        accessory.getService(Service.FanV2).getCharacteristic(Characteristic.Active)
+    if (accessory.getService(Service.Fanv2)) {
+        accessory.getService(Service.Fanv2).getCharacteristic(Characteristic.On)
             .on("get", function (callback) {
-
+                platform.getFanState(accessory, callback);
             })
-            .on("set", function (callback) {
+            .on("set", function (value, callback) {
+                platform.setFanState(accessory, value, callback);
             });
 
         // This is actually the fan speed instead of rotation speed but homekit fan does not support this
-        accessory.getService(Service.FanV2).getCharacteristic(Characteristic.RotationSpeed)
+        accessory.getService(Service.Fanv2).getCharacteristic(Characteristic.RotationSpeed)
             .setProps({
                 minStep: 3
             })
             .on("get", function (callback) {
-
+                platform.getFanSpeed(accessory, callback);
             })
-            .on("set", function (callback) {
-
+            .on("set", function (value, callback) {
+                platform.setFanSpeed(accessory, value, callback);
             });
     }
 
-    if  (accessory.getService(Service.Lightbulb)) {
+    if (accessory.getService(Service.Lightbulb)) {
         accessory.getService(Service.Lightbulb).getCharacteristic(Characteristic.On)
             .on("get", function (callback) {
                 platform.getFanLightState(accessory, callback);
@@ -619,11 +623,12 @@ eWeLink.prototype.addAccessory = function (device, deviceId = null, services = {
             });
 
 
-        fan.getCharacteristic(Characteristic.Active)
+        fan.getCharacteristic(Characteristic.On)
             .on("get", function (callback) {
-
+                platform.getFanState(accessory, callback);
             })
-            .on("set", function (callback) {
+            .on("set", function (value, callback) {
+                platform.setFanState(accessory, value, callback);
             });
 
         // This is actually the fan speed instead of rotation speed but homekit fan does not support this
@@ -632,10 +637,10 @@ eWeLink.prototype.addAccessory = function (device, deviceId = null, services = {
                 minStep: 3
             })
             .on("get", function (callback) {
-
+                platform.getFanSpeed(accessory, callback);
             })
-            .on("set", function (callback) {
-
+            .on("set", function (value, callback) {
+                platform.setFanSpeed(accessory, value, callback);
             });
     }
 
@@ -941,6 +946,49 @@ eWeLink.prototype.updateFanLightCharacteristic = function (deviceId, state, devi
 
 };
 
+eWeLink.prototype.updateFanSpeedCharacteristic = function (deviceId, state1, state2, state3, device = null) {
+
+    // Used when we receive an update from an external source
+
+    let platform = this;
+
+    let isOn = false;
+    let speed = 0;
+
+    let accessory = platform.accessories.get(deviceId);
+
+    if (typeof accessory === 'undefined' && device) {
+        platform.log("Adding accessory for deviceId [%s].", deviceId);
+        platform.addAccessory(device, deviceId);
+        accessory = platform.accessories.get(deviceId);
+    }
+
+    if (!accessory) {
+        platform.log("Error updating non-exist accessory with deviceId [%s].", deviceId);
+        return;
+    }
+
+    if (state1 === 'on' && state2 === 'off' && state3 === 'off') {
+        isOn = true;
+        speed = 33.0
+    } else if (state1 === 'on' && state2 === 'on' && state3 === 'off') {
+        isOn = true;
+        speed = 66.0
+    } else if (state1 === 'on' && state2 === 'off' && state3 === 'on') {
+        isOn = true;
+        speed = 100.0
+    }
+
+    platform.log("Updating recorded Characteristic.On for [%s] to [%s]. No request will be sent to the device.", accessory.displayName, isOn);
+    platform.log("Updating recorded Characteristic.RotationSpeed for [%s] to [%s]. No request will be sent to the device.", accessory.displayName, speed);
+
+    accessory.getService(Service.Fanv2)
+        .setCharacteristic(Characteristic.On, isOn);
+
+    accessory.getService(Service.Fanv2)
+        .setCharacteristic(Characteristic.RotationSpeed, speed);
+};
+
 eWeLink.prototype.getPowerState = function (accessory, callback) {
     let platform = this;
 
@@ -1110,7 +1158,6 @@ eWeLink.prototype.getFanLightState = function (accessory, callback) {
             let device = filteredResponse[0];
 
             if (device.deviceid === deviceId) {
-
                 if (device.online !== true) {
                     accessory.reachable = false;
                     platform.log("Device [%s] was reported to be offline by the API", accessory.displayName);
@@ -1146,8 +1193,185 @@ eWeLink.prototype.getFanLightState = function (accessory, callback) {
             // The device is no longer registered
             // The device is no longer registered
             platform.log("Device [%s] did not exist in the response. It will be removed", accessory.displayName);
-            //platform.removeAccessory(accessory);
+            platform.removeAccessory(accessory);
+        }
+    });
+};
 
+eWeLink.prototype.getFanState = function (accessory, callback) {
+    let platform = this;
+
+    if (!this.webClient) {
+        callback('this.webClient not yet ready while obtaining power status for your device');
+        accessory.reachable = false;
+        return;
+    }
+
+    platform.log("Requesting fan state for [%s]", accessory.displayName);
+
+    this.webClient.get('/api/user/device?' + this.getArguments(), function (err, res, body) {
+
+        if (err) {
+            platform.log("An error was encountered while requesting a list of devices while interrogating power status. Error was [%s]", err);
+            return;
+        } else if (!body) {
+            platform.log("An error was encountered while requesting a list of devices while interrogating power status. No data in response.", err);
+            return;
+        } else if (body.hasOwnProperty('error') && body.error != 0) {
+            platform.log("An error was encountered while requesting a list of devices while interrogating power status. Verify your configuration options. Response was [%s]", JSON.stringify(body));
+            if ([401, 402].indexOf(parseInt(body.error)) !== -1) {
+                platform.relogin();
+            }
+            callback('An error was encountered while requesting a list of devices to interrogate power status for your device');
+            return;
+        }
+
+        body = body.devicelist;
+
+        let size = Object.keys(body).length;
+
+        if (body.length < 1) {
+            callback('An error was encountered while requesting a list of devices to interrogate power status for your device');
+            accessory.reachable = false;
+            return;
+        }
+
+        let deviceId = accessory.context.deviceId;
+
+        let filteredResponse = body.filter(device => (device.deviceid === deviceId));
+
+        if (filteredResponse.length === 1) {
+
+            let device = filteredResponse[0];
+
+            if (device.deviceid === deviceId) {
+                if (device.online !== true) {
+                    accessory.reachable = false;
+                    platform.log("Device [%s] was reported to be offline by the API", accessory.displayName);
+                    callback('API reported that [%s] is not online', device.name);
+                    return;
+                }
+
+                if (device.params.switches[1].switch === 'on') {
+                    accessory.reachable = true;
+                    platform.log('API reported that fan light %s is On', device.name);
+                    callback(null, 1);
+                    return;
+                } else if (device.params.switches[1].switch === 'off') {
+                    accessory.reachable = true;
+                    platform.log('API reported that fan light %s is Off', device.name);
+                    callback(null, 0);
+                    return;
+                } else {
+                    accessory.reachable = false;
+                    platform.log(device.params.switches);
+                    platform.log('API reported an unknown status for device [%s] [%s]', accessory.displayName, device.params.switches[1].switch);
+                    callback('API returned an unknown status for device ' + accessory.displayName);
+                    return;
+                }
+            }
+
+        } else if (filteredResponse.length > 1) {
+            // More than one device matches our Device ID. This should not happen.
+            platform.log("ERROR: The response contained more than one device with Device ID [%s]. Filtered response follows.", device.deviceid);
+            platform.log(filteredResponse);
+            callback("The response contained more than one device with Device ID " + device.deviceid);
+
+        } else if (filteredResponse.length < 1) {
+            // The device is no longer registered
+            platform.log("Device [%s] did not exist in the response. It will be removed", accessory.displayName);
+            platform.removeAccessory(accessory);
+        }
+    });
+};
+
+eWeLink.prototype.getFanSpeed = function (accessory, callback) {
+    let platform = this;
+
+    if (!this.webClient) {
+        callback('this.webClient not yet ready while obtaining power status for your device');
+        accessory.reachable = false;
+        return;
+    }
+
+    platform.log("Requesting fan state for [%s]", accessory.displayName);
+
+    this.webClient.get('/api/user/device?' + this.getArguments(), function (err, res, body) {
+
+        if (err) {
+            platform.log("An error was encountered while requesting a list of devices while interrogating power status. Error was [%s]", err);
+            return;
+        } else if (!body) {
+            platform.log("An error was encountered while requesting a list of devices while interrogating power status. No data in response.", err);
+            return;
+        } else if (body.hasOwnProperty('error') && body.error != 0) {
+            platform.log("An error was encountered while requesting a list of devices while interrogating power status. Verify your configuration options. Response was [%s]", JSON.stringify(body));
+            if ([401, 402].indexOf(parseInt(body.error)) !== -1) {
+                platform.relogin();
+            }
+            callback('An error was encountered while requesting a list of devices to interrogate power status for your device');
+            return;
+        }
+
+        body = body.devicelist;
+
+        let size = Object.keys(body).length;
+
+        if (body.length < 1) {
+            callback('An error was encountered while requesting a list of devices to interrogate power status for your device');
+            accessory.reachable = false;
+            return;
+        }
+
+        let deviceId = accessory.context.deviceId;
+
+        let filteredResponse = body.filter(device => (device.deviceid === deviceId));
+
+        if (filteredResponse.length === 1) {
+
+            let device = filteredResponse[0];
+
+            if (device.deviceid === deviceId) {
+                if (device.online !== true) {
+                    accessory.reachable = false;
+                    platform.log("Device [%s] was reported to be offline by the API", accessory.displayName);
+                    callback('API reported that [%s] is not online', device.name);
+                    return;
+                }
+
+                if (device.params.switches[1].switch === 'on' && device.params.switches[2].switch === 'off' && device.params.switches[3].switch === 'off') {
+                    accessory.reachable = true;
+                    platform.log('API reported that fan speed %s is %d', device.name, 33);
+                    callback(null, 33);
+                    return;
+                } else if (device.params.switches[1].switch === 'on' && device.params.switches[2].switch === 'on' && device.params.switches[3].switch === 'off') {
+                    accessory.reachable = true;
+                    platform.log('API reported that fan speed %s is %d', device.name, 66);
+                    callback(null, 66);
+                    return;
+                } else if (device.params.switches[1].switch === 'on' && device.params.switches[2].switch === 'off' && device.params.switches[3].switch === 'on') {
+                    accessory.reachable = true;
+                    platform.log('API reported that fan speed %s is %d', device.name, 100);
+                    callback(null, 100);
+                    return;
+                } else {
+                    accessory.reachable = false;
+                    platform.log('API reported an unknown status for device [%s]', accessory.displayName);
+                    callback('API returned an unknown status for device ' + accessory.displayName);
+                    return;
+                }
+            }
+
+        } else if (filteredResponse.length > 1) {
+            // More than one device matches our Device ID. This should not happen.
+            platform.log("ERROR: The response contained more than one device with Device ID [%s]. Filtered response follows.", device.deviceid);
+            platform.log(filteredResponse);
+            callback("The response contained more than one device with Device ID " + device.deviceid);
+
+        } else if (filteredResponse.length < 1) {
+            // The device is no longer registered
+            platform.log("Device [%s] did not exist in the response. It will be removed", accessory.displayName);
+            platform.removeAccessory(accessory);
         }
     });
 };
@@ -1404,15 +1628,15 @@ eWeLink.prototype.setFanLightState = function (accessory, isOn, callback) {
         targetState = 'on';
     }
 
-    platform.log("Setting power state to [%s] for device [%s]", targetState, accessory.displayName);
+    platform.log("Setting light state to [%s] for device [%s]", targetState, accessory.displayName);
 
     let payload = {};
     payload.action = 'update';
     payload.userAgent = 'app';
     payload.params = {};
-        let deviceInformationFromWebApi = platform.devicesFromApi.get(deviceId);
-        payload.params.switches = deviceInformationFromWebApi.params.switches;
-        payload.params.switches[0].switch = targetState;
+    let deviceInformationFromWebApi = platform.devicesFromApi.get(deviceId);
+    payload.params.switches = deviceInformationFromWebApi.params.switches;
+    payload.params.switches[0].switch = targetState;
 
     payload.apikey = '' + accessory.context.apiKey;
     payload.deviceid = '' + deviceId;
@@ -1438,6 +1662,107 @@ eWeLink.prototype.setFanLightState = function (accessory, isOn, callback) {
 
 };
 
+eWeLink.prototype.setFanState = function (accessory, isOn, callback) {
+    let platform = this;
+    let options = {};
+    let deviceId = accessory.context.deviceId;
+    options.protocolVersion = 13;
+
+    let targetState = 'off';
+
+    if (isOn) {
+        targetState = 'on';
+    }
+
+    platform.log("Setting fan state to [%s] for device [%s]", targetState, accessory.displayName);
+
+    let payload = {};
+    payload.action = 'update';
+    payload.userAgent = 'app';
+    payload.params = {};
+    let deviceInformationFromWebApi = platform.devicesFromApi.get(deviceId);
+    payload.params.switches = deviceInformationFromWebApi.params.switches;
+    payload.params.switches[1].switch = targetState;
+    payload.apikey = '' + accessory.context.apiKey;
+    payload.deviceid = '' + deviceId;
+
+    payload.sequence = platform.getSequence();
+
+    let string = JSON.stringify(payload);
+    // platform.log( string );
+
+    if (platform.isSocketOpen) {
+
+        setTimeout(function () {
+            platform.wsc.send(string);
+
+            // TODO Here we need to wait for the response to the socket
+
+            callback();
+        }, 1);
+
+    } else {
+        callback('Socket was closed. It will reconnect automatically; please retry your command');
+    }
+
+};
+
+eWeLink.prototype.setFanSpeed = function (accessory, value, callback) {
+    let platform = this;
+    let options = {};
+    let deviceId = accessory.context.deviceId;
+    options.protocolVersion = 13;
+
+
+    platform.log("Setting fan state to [%s] for device [%s]", value, accessory.displayName);
+
+    let payload = {};
+    payload.action = 'update';
+    payload.userAgent = 'app';
+    payload.params = {};
+    let deviceInformationFromWebApi = platform.devicesFromApi.get(deviceId);
+    payload.params.switches = deviceInformationFromWebApi.params.switches;
+
+    if (value < 33) {
+        payload.params.switches[1].switch = 'off';
+        payload.params.switches[2].switch = 'off';
+        payload.params.switches[3].switch = 'off';
+    } else if (value >=33 && value < 66) {
+        payload.params.switches[1].switch = 'on';
+        payload.params.switches[2].switch = 'off';
+        payload.params.switches[3].switch = 'off';
+    } else if (value >=66 && value < 99) {
+        payload.params.switches[1].switch = 'on';
+        payload.params.switches[2].switch = 'on';
+        payload.params.switches[3].switch = 'off';
+    } else if (value >= 99) {
+        payload.params.switches[1].switch = 'on';
+        payload.params.switches[2].switch = 'off';
+        payload.params.switches[3].switch = 'on';
+    }
+
+    payload.apikey = '' + accessory.context.apiKey;
+    payload.deviceid = '' + deviceId;
+
+    payload.sequence = platform.getSequence();
+
+    let string = JSON.stringify(payload);
+    // platform.log( string );
+
+    if (platform.isSocketOpen) {
+
+        setTimeout(function () {
+            platform.wsc.send(string);
+
+            // TODO Here we need to wait for the response to the socket
+
+            callback();
+        }, 1);
+
+    } else {
+        callback('Socket was closed. It will reconnect automatically; please retry your command');
+    }
+};
 
 // Sample function to show how developer can remove accessory dynamically from outside event
 eWeLink.prototype.removeAccessory = function (accessory) {
