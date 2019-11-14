@@ -589,20 +589,28 @@ eWeLink.prototype.addAccessory = function (device, deviceId = null, services = {
         channel = id[1];
     }
 
+    let deviceName = device.name + (channel ? ' CH ' + channel : '');
+    try {
+        if (device.tags.ck_channel_name[channel-1])
+            deviceName = device.tags.ck_channel_name[channel-1];
+    } catch (e) {
+        this.log("Problem device name : [%s]", e);
+    }
+
     try {
         const status = channel && device.params.switches && device.params.switches[channel - 1] ? device.params.switches[channel - 1].switch : device.params.switch || "off";
-        this.log("Found Accessory with Name : [%s], Manufacturer : [%s], Status : [%s], Is Online : [%s], API Key: [%s] ", device.name + (channel ? ' CH ' + channel : ''), device.productModel, status, device.online, device.apikey);
+        this.log("Found Accessory with Name : [%s], Manufacturer : [%s], Status : [%s], Is Online : [%s], API Key: [%s] ", deviceName, device.productModel, status, device.online, device.apikey);
     } catch (e) {
-        this.log("Problem accessory Accessory with Name : [%s], Manufacturer : [%s], Error : [%s], Is Online : [%s], API Key: [%s] ", device.name + (channel ? ' CH ' + channel : ''), device.productModel, e, device.online, device.apikey);
+        this.log("Problem accessory Accessory with Name : [%s], Manufacturer : [%s], Error : [%s], Is Online : [%s], API Key: [%s] ", deviceName, device.productModel, e, device.online, device.apikey);
     }
 
     let switchesCount = this.getDeviceChannelCount(device);
     if (channel > switchesCount) {
-        this.log("Can't add [%s], because device [%s] has only [%s] switches.", device.name + (channel ? ' CH ' + channel : ''), device.productModel, switchesCount);
+        this.log("Can't add [%s], because device [%s] has only [%s] switches.", deviceName, device.productModel, switchesCount);
         return;
     }
 
-    const accessory = new Accessory(device.name + (channel ? ' CH ' + channel : ''), UUIDGen.generate((deviceId ? deviceId : device.deviceid).toString()));
+    const accessory = new Accessory(deviceName, UUIDGen.generate((deviceId ? deviceId : device.deviceid).toString()));
 
     accessory.context.deviceId = deviceId ? deviceId : device.deviceid;
     accessory.context.apiKey = device.apikey;
@@ -664,7 +672,7 @@ eWeLink.prototype.addAccessory = function (device, deviceId = null, services = {
         // Ensuring switches device config
         platform.initSwitchesConfig(accessory);
 
-        var service = accessory.addService(Service.WindowCovering, device.name);
+        var service = accessory.addService(Service.WindowCovering, deviceName);
         service.getCharacteristic(Characteristic.CurrentPosition)
             .on('get', function (callback) {
                 platform.getCurrentPosition(accessory, callback);
@@ -682,7 +690,7 @@ eWeLink.prototype.addAccessory = function (device, deviceId = null, services = {
             });
     }
     if (services.switch) {
-        accessory.addService(Service.Switch, device.name + (channel ? ' CH ' + channel : ''))
+        accessory.addService(Service.Switch, deviceName)
             .getCharacteristic(Characteristic.On)
             .on('set', function (value, callback) {
                 platform.setPowerState(accessory, value, callback);
@@ -692,7 +700,7 @@ eWeLink.prototype.addAccessory = function (device, deviceId = null, services = {
             });
     }
     if (services.thermostat) {
-        var service = accessory.addService(Service.Thermostat, device.name + (channel ? ' CH ' + channel : ''));
+        var service = accessory.addService(Service.Thermostat, deviceName);
 
         service.getCharacteristic(Characteristic.CurrentTemperature)
             .on('set', function (value, callback) {
@@ -710,7 +718,7 @@ eWeLink.prototype.addAccessory = function (device, deviceId = null, services = {
             });
     }
     if (services.temperature) {
-        accessory.addService(Service.TemperatureSensor, device.name + (channel ? ' CH ' + channel : ''))
+        accessory.addService(Service.TemperatureSensor, deviceName)
             .getCharacteristic(Characteristic.CurrentTemperature)
             .on('set', function (value, callback) {
                 platform.setTemperatureState(accessory, value, callback);
@@ -721,7 +729,7 @@ eWeLink.prototype.addAccessory = function (device, deviceId = null, services = {
     }
 
     if (services.humidity) {
-        accessory.addService(Service.HumiditySensor, device.name + (channel ? ' CH ' + channel : ''))
+        accessory.addService(Service.HumiditySensor, deviceName)
             .getCharacteristic(Characteristic.CurrentRelativeHumidity)
             .on('set', function (value, callback) {
                 platform.setHumidityState(accessory, value, callback);
@@ -740,7 +748,13 @@ eWeLink.prototype.addAccessory = function (device, deviceId = null, services = {
     accessory.getService(Service.AccessoryInformation).setCharacteristic(Characteristic.Manufacturer, device.productModel);
     accessory.getService(Service.AccessoryInformation).setCharacteristic(Characteristic.Model, device.extra.extra.model);
     accessory.getService(Service.AccessoryInformation).setCharacteristic(Characteristic.Identify, false);
-    accessory.getService(Service.AccessoryInformation).setCharacteristic(Characteristic.FirmwareRevision, device.params.fwVersion);
+
+    // Exception when some device is not ready to register
+    try {
+        accessory.getService(Service.AccessoryInformation).setCharacteristic(Characteristic.FirmwareRevision, device.params.fwVersion);
+    } catch (e) {
+        this.log("Error : [%s]", e);
+    }
 
     let switchesAmount = platform.getDeviceChannelCount(device);
     if (switchesAmount > 1) {
@@ -2003,7 +2017,7 @@ eWeLink.prototype.getArguments = function () {
     let args = {};
     args.lang = 'en';
     args.apiKey = this.apiKey;
-    args.getTag = '1';
+    args.getTags = '1';
     args.version = '6';
     args.ts = '' + Math.floor(new Date().getTime() / 1000);
     args.nounce = '' + nonce();
