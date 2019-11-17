@@ -3,6 +3,7 @@
 Fork of https://github.com/howanghk/homebridge-ewelink, that include:
 
 1. Fix CH3 and CH4 entries for T1 C2 device.
+1. Correction of Sonoff API 503 error for large number of Sonoff devices.
 1. Fix spelling mistakes.
 
 # homebridge-ewelink-max
