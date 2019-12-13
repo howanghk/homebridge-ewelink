@@ -13,6 +13,8 @@ let webClient = '';
 let apiKey = 'UNCONFIGURED';
 let authenticationToken = 'UNCONFIGURED';
 let Accessory, Service, Characteristic, UUIDGen;
+let delaySend = 0;
+const delayOffset = 280;
 
 module.exports = function (homebridge) {
     console.log("homebridge API version: " + homebridge.version);
@@ -1612,23 +1614,41 @@ eWeLink.prototype.setPowerState = function (accessory, isOn, callback) {
     payload.sequence = platform.getSequence();
 
     let string = JSON.stringify(payload);
-    // platform.log( string );
+    platform.log(string);
 
-    if (platform.isSocketOpen) {
 
-        setTimeout(function () {
-            platform.wsc.send(string);
+    const sendOperation = async function (string) {
+        if (platform.wsc) {
+            platform.wsc.send(string,callback);
+            platform.log("WS message sent");
+        }
 
-            // TODO Here we need to wait for the response to the socket
+        if (delaySend <= 0)
+            delaySend = 0;
+        else
+            delaySend -= delayOffset;
+    }
 
-            callback();
-        }, 1);
+    if (!platform.isSocketOpen) {
+        platform.log('Socket was closed. It will reconnect automatically');
 
-    } else {
-        callback('Socket was closed. It will reconnect automatically; please retry your command');
+        const waitToSend = function (string){
+            if (platform.isSocketOpen) {
+                clearInterval(interval);
+                sendOperation(string);
+            } else {
+                platform.log('Connection not ready.....')
+            }
+        }
+        const interval = setInterval(waitToSend, 750,string)
+    }
+    else{
+        setTimeout(sendOperation, delaySend, string)
+        delaySend += delayOffset;
     }
 
 };
+
 
 eWeLink.prototype.setFanLightState = function (accessory, isOn, callback) {
     let platform = this;
