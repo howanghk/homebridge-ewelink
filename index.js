@@ -754,7 +754,7 @@ eWeLink.prototype.addAccessory = function (device, deviceId = null, services = {
         callback();
     });
 
-    accessory.getService(Service.AccessoryInformation).setCharacteristic(Characteristic.SerialNumber, device.extra.extra.mac);
+    accessory.getService(Service.AccessoryInformation).setCharacteristic(Characteristic.SerialNumber, device.extra.extra.mac + (channel ? 'CH' + channel : ''));
     accessory.getService(Service.AccessoryInformation).setCharacteristic(Characteristic.Manufacturer, device.productModel);
     accessory.getService(Service.AccessoryInformation).setCharacteristic(Characteristic.Model, device.extra.extra.model);
     accessory.getService(Service.AccessoryInformation).setCharacteristic(Characteristic.Identify, false);
