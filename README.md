@@ -37,6 +37,7 @@ sudo npm -g install homebridge-ewelink-max
 
 2) Add to the platforms[] section of config.json.
 
+  * `countryCode` - The country code of your ewelink account without + prefix, see [list of country codes on Wikipedia](https://en.wikipedia.org/wiki/List_of_country_calling_codes)
   * `phoneNumber` - The login phone number of your ewelink account, do not include this if you login with email
   * `email` - The login email of your ewelink account, do not include this if you login with phone number
   * `password` - Your ewelink account login password
@@ -64,6 +65,7 @@ sudo npm -g install homebridge-ewelink-max
         {
             "platform" : "eWeLink",
             "name" : "eWeLink",
+            "countryCode" : "1",
             "phoneNumber" : "+12345678901",
             "password" : "your-login-password",
             "imei" : "01234567-89AB-CDEF-0123-456789ABCDEF"
@@ -78,6 +80,7 @@ If you use email login, the platform section should look like this:
         {
             "platform" : "eWeLink",
             "name" : "eWeLink",
+            "countryCode" : "44",
             "email" : "your-email@example.com",
             "password" : "your-login-password",
             "imei" : "01234567-89AB-CDEF-0123-456789ABCDEF"
