@@ -68,7 +68,7 @@ function eWeLink(log, config, api) {
         smokeSensorEchoMinutes = config['smokeSensorEcho'];
     }
     if (!config['smokeKw']) {
-        config['smokeKw'] = "hoří";
+        config['smokeKw'] = "smoke";
     }
 
     platform.log("Intialising eWeLink");
