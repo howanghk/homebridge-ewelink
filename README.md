@@ -42,6 +42,11 @@ sudo npm -g install homebridge-ewelink-max
   * `email` - The login email of your ewelink account, do not include this if you login with phone number
   * `password` - Your ewelink account login password
   * `imei` - This can be any valid UUID, get one with an [online generator](https://www.famkruithof.net/uuid/uuidgen?numReq=1&typeReq=4&uppercaseReq=true)
+  
+  If you have RF Bridge with sensors (currently tested with Smoke sensor and Motion sensor):
+   * `smokeKw` - ewelink does not distinguish between types of devices (smoke sensor, motion sensor, etc.) so there is possibility to set them by keyword. If your sensor is named e.g. "Smoke sensor 1", set smokeKw to "smoke" and this sensor will appear in homekit as smoke sensor. Otherwise all other sensors appear as motion sensors
+   * `smokeSensorEcho` - number of minutes by which the sensor appears as a detected. Default: 2
+   * `motionSensorEcho` - number of minutes by which the sensor appears as a detected. Default: 2
 
 3) Restart Homebridge
 
@@ -68,7 +73,10 @@ sudo npm -g install homebridge-ewelink-max
             "countryCode" : "1",
             "phoneNumber" : "+12345678901",
             "password" : "your-login-password",
-            "imei" : "01234567-89AB-CDEF-0123-456789ABCDEF"
+            "imei" : "01234567-89AB-CDEF-0123-456789ABCDEF",
+            "smokeKw" : "smoke",
+            "smokeSensorEcho" : 2,
+            "motionSensorEcho" : 2,
         }
     ]
 }
