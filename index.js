@@ -14,6 +14,8 @@ let webClient = '';
 let apiKey = 'UNCONFIGURED';
 let authenticationToken = 'UNCONFIGURED';
 let Accessory, Service, Characteristic, UUIDGen;
+let rfDevices = [];
+let motionSensorEchoMinutes, smokeSensorEchoMinutes;
 
 module.exports = function (homebridge) {
     console.log("homebridge API version: " + homebridge.version);
@@ -42,6 +44,8 @@ function eWeLink(log, config, api) {
     this.authenticationToken = config['authenticationToken'];
     this.devicesFromApi = new Map();
 
+    
+
     // platform.log(JSON.stringify(config, null, " "));
 
     if (!config || (!config['authenticationToken'] && ((!config['phoneNumber'] && !config['email']) || !config['password'] || !config['imei']))) {
@@ -54,6 +58,17 @@ function eWeLink(log, config, api) {
     }
     if (!config['webSocketApi']) {
         config['webSocketApi'] = 'us-pconnect3.coolkit.cc';
+    }
+    if (!config['motionSensorEcho']) {
+        config['motionSensorEcho'] = 2;
+        motionSensorEchoMinutes = config['motionSensorEcho'];
+    }
+    if (!config['smokeSensorEcho']) {
+        config['smokeSensorEcho'] = 2;
+        smokeSensorEchoMinutes = config['smokeSensorEcho'];
+    }
+    if (!config['smokeKw']) {
+        config['smokeKw'] = "hoří";
     }
 
     platform.log("Intialising eWeLink");
@@ -130,11 +145,64 @@ function eWeLink(log, config, api) {
 
                     body.forEach((device) => {
                         platform.apiKey = device.apikey;
-                        // Skip Sonoff Bridge as it is not supported by this plugin
+                        // if not Sonoff Bridge
                         if (['RF_BRIDGE'].indexOf(platform.getDeviceTypeByUiid(device.uiid)) == -1) {
                             platform.devicesFromApi.set(device.deviceid, device);
                         }
+                        else { // therefore if Sonoff Bridge
+                            var n = 0;
+                            device.tags.zyx_info.forEach((rfDevInfo) => {
+                                var rfDevType = (rfDevInfo.name.indexOf(config['smokeKw']) > -1 ? 'smoke' : 'motion');
+                                
+                                rfDev = {
+                                   "name": rfDevInfo.name,
+                                   "channel": n,
+                                   "type": rfDevType
+                                }
+
+                                rfDevices[n] = rfDev; 
+                                
+
+                                var device2 = {
+                                    name: rfDevInfo.name,
+                                    deviceid: '1000a8e563'+'_'+n,
+                                    productModel: rfDevType+' sensor', 
+                                    online: true, 
+                                    apikey: 'b2499f05-dbd3-4587-b020-a5d8c94f83f6',
+                                    type: 10,
+                                    sType: rfDevType,
+                                    extra: {
+                                        extra: {
+                                          uiid: 28,
+                                          description: '20190911009',
+                                          brandId: '5c4c1aee3a7d24c7100be054',
+                                          apmac: 'd0:27:01:51:c8:17',
+                                          mac: 'd0:27:01:51:c8:16',
+                                          ui: 'RFBridge',
+                                          modelInfo: '5c700faecc248c47441fd242',
+                                          model: 'PSF-BRA-GL',
+                                          manufacturer: '深圳松诺技术有限公司',
+                                          chipid: '00C4B73A',
+                                          staMac: '2C:F4:32:C4:B7:3A'
+                                        },
+                                        _id: '5d79a67c2a2728b8c9d86caa'
+                                      },
+                                    params: {
+                                        switches: {}
+                                    }
+                                }
+                                platform.devicesFromApi.set(device2.deviceid, device2);
+                                n++;
+                            });
+
+                            
+
+                            
+
+                        }
                     });
+
+                    
 
                     // Now we compare the cached devices against the web list
                     platform.log("Evaluating if devices need to be removed...");
@@ -249,6 +317,16 @@ function eWeLink(log, config, api) {
                             } else {
                                 services.switch = true;
                             }
+
+                            if (deviceToAdd.hasOwnProperty("sType") && deviceToAdd.sType == "motion"){
+                                services.motion = true;
+                                services.switch = false;
+                            }
+                            if (deviceToAdd.hasOwnProperty("sType") && deviceToAdd.sType == "smoke"){
+                                services.smoke = true;
+                                services.switch = false;
+                            }
+
                             if (switchesAmount > 1) {
                                 if (platform.groups.has(deviceToAdd.deviceid)) {
                                     let group = platform.groups.get(deviceToAdd.deviceid);
@@ -320,7 +398,7 @@ function eWeLink(log, config, api) {
                             if (json.action === 'update') {
 
                                 platform.log("Update message received for device [%s]", json.deviceid);
-                                platform.log(json);
+                                //platform.log(json);
 
                                 if (json.hasOwnProperty("params") && json.params.hasOwnProperty("switch")) {
                                     platform.updatePowerStateCharacteristic(json.deviceid, json.params.switch);
@@ -345,13 +423,31 @@ function eWeLink(log, config, api) {
                                         platform.updateFanLightCharacteristic(json.deviceid, json.params.switches[0].switch, platform.devicesFromApi.get(json.deviceid));
                                         platform.devicesFromApi.get(json.deviceid).params.switches = json.params.switches;
                                         platform.updateFanSpeedCharacteristic(json.deviceid, json.params.switches[1].switch, json.params.switches[2].switch, json.params.switches[3].switch, platform.devicesFromApi.get(json.deviceid));
-                                    } else {
+                                    }
+                                    else {
                                         json.params.switches.forEach(function (entry) {
                                             if (entry.hasOwnProperty('outlet') && entry.hasOwnProperty('switch')) {
                                                 platform.updatePowerStateCharacteristic(json.deviceid + 'CH' + (entry.outlet + 1), entry.switch, platform.devicesFromApi.get(json.deviceid));
                                             }
                                         });
                                     }
+                                }
+                                else if (json.hasOwnProperty("params") && json.params.hasOwnProperty("trigger")) {
+                                    var rfDeviceChannel = null;
+                                    for (var key in json.params) {
+                                        if (key.startsWith('rfTrig')){
+                                            var matches = key.match(/(\d+)/); // rfTrigX
+                                            rfDeviceChannel = matches[0];
+                                        }
+                                    }
+
+                                    if (rfDevices[rfDeviceChannel].hasOwnProperty("type") &&  rfDevices[rfDeviceChannel].type == "motion"){
+                                        platform.updateMotionSensorCharacteristic(json.deviceid + '_'+ rfDeviceChannel, true);
+                                    }
+                                    if (rfDevices[rfDeviceChannel].hasOwnProperty("type") &&  rfDevices[rfDeviceChannel].type == "smoke"){
+                                        platform.updateSmokeSensorCharacteristic(json.deviceid + '_'+ rfDeviceChannel, true);
+                                    }
+
                                 }
 
                                 if (json.hasOwnProperty("params") && (json.params.hasOwnProperty("currentTemperature") || json.params.hasOwnProperty("currentHumidity"))) {
@@ -536,6 +632,30 @@ eWeLink.prototype.configureAccessory = function (accessory) {
             })
             .on('get', function (callback) {
                 platform.getCurrentHumidity(accessory, callback);
+            });
+    }
+
+    // kk - motion sensor
+    if (accessory.getService(Service.MotionSensor)) {
+        accessory.getService(Service.MotionSensor)
+            .getCharacteristic(Characteristic.MotionDetected)
+            .on('set', function (value, callback) {
+                platform.setMotionState(accessory, value, callback);
+            })
+            .on('get', function (callback) {
+                platform.getMotionState(accessory, callback);
+            });
+    }
+
+    // kk - smoke sensor
+    if (accessory.getService(Service.SmokeSensor)) {
+        accessory.getService(Service.SmokeSensor)
+            .getCharacteristic(Characteristic.SmokeDetected)
+            .on('set', function (value, callback) {
+                platform.setSmokeState(accessory, value, callback);
+            })
+            .on('get', function (callback) {
+                platform.getSmokeState(accessory, callback);
             });
     }
 
@@ -749,6 +869,29 @@ eWeLink.prototype.addAccessory = function (device, deviceId = null, services = {
             });
     }
 
+    // kk motion
+    if (services.motion) {
+        accessory.addService(Service.MotionSensor, deviceName)
+            .getCharacteristic(Characteristic.MotionDetected)
+            .on('set', function (value, callback) {
+                platform.setMotionState(accessory, value, callback);
+            })
+            .on('get', function (callback) {
+                platform.getMotionState(accessory, callback);
+            });
+    }
+    // kk smoke
+    if (services.smoke) {
+        accessory.addService(Service.SmokeSensor, deviceName)
+            .getCharacteristic(Characteristic.SmokeDetected)
+            .on('set', function (value, callback) {
+                platform.setSmokeState(accessory, value, callback);
+            })
+            .on('get', function (callback) {
+                platform.getSmokeState(accessory, callback);
+            });
+    }
+
     accessory.on('identify', function (paired, callback) {
         platform.log(accessory.displayName, "Identify not supported");
         callback();
@@ -859,6 +1002,65 @@ eWeLink.prototype.updateCurrentTemperatureCharacteristic = function (deviceId, s
     if (accessory.getService(Service.HumiditySensor)) {
         accessory.getService(Service.HumiditySensor)
             .setCharacteristic(Characteristic.CurrentRelativeHumidity, currentHumidity);
+    }
+
+};
+
+eWeLink.prototype.updateMotionSensorCharacteristic = function (deviceId, state, device = null) {
+
+    // Used when we receive an update from an external source
+
+    let platform = this;
+
+    let accessory = platform.accessories.get(deviceId);
+    //platform.log("deviceID:", deviceId);
+
+    if (typeof accessory === 'undefined' && device) {
+        platform.addAccessory(device, deviceId);
+        accessory = platform.accessories.get(deviceId);
+    }
+
+    if (!accessory) {
+        platform.log("Error updating non-exist accessory with deviceId [%s].", deviceId);
+        return;
+    }
+
+    let currentMotionState = state;
+
+    platform.log("Updating Characteristic.motionDetected for [%s] to [%s]. ", accessory.displayName, currentMotionState);
+
+    if (accessory.getService(Service.MotionSensor)) {
+        accessory.getService(Service.MotionSensor)
+            .setCharacteristic(Characteristic.MotionDetected, currentMotionState);
+    }
+
+};
+eWeLink.prototype.updateSmokeSensorCharacteristic = function (deviceId, state, device = null) {
+
+    // Used when we receive an update from an external source
+
+    let platform = this;
+
+    let accessory = platform.accessories.get(deviceId);
+    //platform.log("deviceID:", deviceId);
+
+    if (typeof accessory === 'undefined' && device) {
+        platform.addAccessory(device, deviceId);
+        accessory = platform.accessories.get(deviceId);
+    }
+
+    if (!accessory) {
+        platform.log("Error updating non-exist accessory with deviceId [%s].", deviceId);
+        return;
+    }
+
+    let currentSmokeState = state;
+
+    platform.log("Updating Characteristic.smokeDetected for [%s] to [%s]. ", accessory.displayName, currentSmokeState);
+
+    if (accessory.getService(Service.SmokeSensor)) {
+        accessory.getService(Service.SmokeSensor)
+            .setCharacteristic(Characteristic.SmokeDetected, currentSmokeState);
     }
 
 };
@@ -1574,6 +1776,179 @@ eWeLink.prototype.getCurrentHumidity = function (accessory, callback) {
 
 };
 
+eWeLink.prototype.getMotionState = function (accessory, callback) {
+    let platform = this;
+
+    platform.log("Requesting current motion state for [%s]", accessory.displayName);
+
+    this.webClient.get('/api/user/device?' + this.getArguments(), function (err, res, body) {
+
+        if (err) {
+            platform.log("An error was encountered while requesting a list of devices while interrogating current humidity. Verify your configuration options. Error was [%s]", err);
+            return;
+        } else if (!body) {
+            platform.log("An error was encountered while requesting a list of devices while interrogating current humidity. Verify your configuration options. No data in response.", err);
+            return;
+        } else if (body.hasOwnProperty('error') && body.error != 0) {
+            platform.log("An error was encountered while requesting a list of devices while interrogating current humidity. Verify your configuration options. Response was [%s]", JSON.stringify(body));
+            callback('An error was encountered while requesting a list of devices to interrogate current humidity for your device');
+            return;
+        }
+
+        body = body.devicelist;
+
+        let size = Object.keys(body).length;
+
+        if (body.length < 1) {
+            callback('An error was encountered while requesting a list of devices to interrogate current humidity for your device');
+            accessory.reachable = false;
+            return;
+        }
+
+        let deviceId = accessory.context.deviceId; // only  device id before _ 
+        let deviceIdSplitted = deviceId.split("_");
+        let rfDeviceChannel = deviceIdSplitted[1];
+
+        let filteredResponse = body.filter(device => (device.deviceid === deviceIdSplitted[0]));
+        if (filteredResponse.length === 1) {
+            
+            let device = filteredResponse[0];
+            
+            if (device.deviceid === deviceIdSplitted[0]) {
+                if (device.online !== true) {
+                    accessory.reachable = false;
+                    platform.log("Device [%s] was reported to be offline by the API", accessory.displayName);
+                    callback('API reported that [%s] is not online', device.name);
+                    return;
+                }
+                
+                let motionDetected = false;
+               
+                 // rfDeviceChannel trigger test by time
+                var motionSensorEcho = motionSensorEchoMinutes * 60 * 1000;
+                if (device.params.hasOwnProperty("rfTrig" + rfDeviceChannel)){ // trigger exists
+                    var diff = ((new Date) - (new Date(device.params["rfTrig" + rfDeviceChannel])));
+                    if (diff <= motionSensorEcho){
+                        motionDetected = true;
+                    }
+                }
+
+                if (accessory.getService(Service.MotionSensor)) {
+                    accessory.getService(Service.MotionSensor).setCharacteristic(Characteristic.MotionDetected,  motionDetected);
+                }
+                
+                accessory.reachable = true;
+                callback(null, motionDetected);
+
+            }
+
+        } else if (filteredResponse.length > 1) {
+            // More than one device matches our Device ID. This should not happen.
+            platform.log("ERROR: The response contained more than one device with Device ID [%s]. Filtered response follows.", device.deviceid);
+            platform.log(filteredResponse);
+            callback("The response contained more than one device with Device ID " + device.deviceid);
+
+        } else if (filteredResponse.length < 1) {
+
+            // The device is no longer registered
+
+            platform.log("Device [%s] did not exist in the response. It will be removed", accessory.displayName);
+            platform.removeAccessory(accessory);
+
+        }
+
+    });
+
+}; 
+
+eWeLink.prototype.getSmokeState = function (accessory, callback) {
+    let platform = this;
+
+    platform.log("Requesting current smoke state for [%s]", accessory.displayName);
+
+    this.webClient.get('/api/user/device?' + this.getArguments(), function (err, res, body) {
+
+        if (err) {
+            platform.log("An error was encountered while requesting a list of devices while interrogating current humidity. Verify your configuration options. Error was [%s]", err);
+            return;
+        } else if (!body) {
+            platform.log("An error was encountered while requesting a list of devices while interrogating current humidity. Verify your configuration options. No data in response.", err);
+            return;
+        } else if (body.hasOwnProperty('error') && body.error != 0) {
+            platform.log("An error was encountered while requesting a list of devices while interrogating current humidity. Verify your configuration options. Response was [%s]", JSON.stringify(body));
+            callback('An error was encountered while requesting a list of devices to interrogate current humidity for your device');
+            return;
+        }
+
+        body = body.devicelist;
+
+        let size = Object.keys(body).length;
+
+        if (body.length < 1) {
+            callback('An error was encountered while requesting a list of devices to interrogate current humidity for your device');
+            accessory.reachable = false;
+            return;
+        }
+
+        let deviceId = accessory.context.deviceId; // only  device id before _ 
+        let deviceIdSplitted = deviceId.split("_");
+        let rfDeviceChannel = deviceIdSplitted[1];
+
+        //platform.log("ptám se na "+deviceIdSplitted[0] + "_"+rfDeviceChannel);
+        let filteredResponse = body.filter(device => (device.deviceid === deviceIdSplitted[0]));
+        //platform.log(filteredResponse[0]);
+        if (filteredResponse.length === 1) {
+            
+            let device = filteredResponse[0];
+            
+            if (device.deviceid === deviceIdSplitted[0]) {
+                if (device.online !== true) {
+                    accessory.reachable = false;
+                    platform.log("Device [%s] was reported to be offline by the API", accessory.displayName);
+                    callback('API reported that [%s] is not online', device.name);
+                    return;
+                }
+                
+                let smokeDetected = false;
+               
+                 // rfDeviceChannel trigger test by time
+                var smokeSensorEcho = smokeSensorEchoMinutes * 60 * 1000;
+                if (device.params.hasOwnProperty("rfTrig" + rfDeviceChannel)){ // trigger exists
+                    var diff = ((new Date) - (new Date(device.params["rfTrig" + rfDeviceChannel])));
+                    if (diff <= smokeSensorEcho){
+                        smokeDetected = true;
+                    }
+                }
+                //platform.log(accessory);
+                //platform.log("getMotionState:", motionDetected);
+
+                if (accessory.getService(Service.SmokeSensor)) {
+                    accessory.getService(Service.SmokeSensor).setCharacteristic(Characteristic.SmokeDetected,  smokeDetected);
+                }
+                accessory.reachable = true;
+                callback(null, smokeDetected);
+
+            }
+
+        } else if (filteredResponse.length > 1) {
+            // More than one device matches our Device ID. This should not happen.
+            platform.log("ERROR: The response contained more than one device with Device ID [%s]. Filtered response follows.", device.deviceid);
+            platform.log(filteredResponse);
+            callback("The response contained more than one device with Device ID " + device.deviceid);
+
+        } else if (filteredResponse.length < 1) {
+
+            // The device is no longer registered
+
+            platform.log("Device [%s] did not exist in the response. It will be removed", accessory.displayName);
+            platform.removeAccessory(accessory);
+
+        }
+
+    });
+
+};
+
 eWeLink.prototype.setTemperatureState = function (accessory, value, callback) {
     let platform = this;
     let deviceId = accessory.context.deviceId;
@@ -1605,6 +1980,27 @@ eWeLink.prototype.setHumidityState = function (accessory, value, callback) {
     */
     callback();
 };
+
+eWeLink.prototype.setMotionState = function (accessory, value, callback) {
+    let platform = this;
+    let deviceId = accessory.context.deviceId;
+    let deviceInformationFromWebApi = platform.devicesFromApi.get(deviceId);
+    //platform.log("setting motionState: ", value);
+    //accessory.getService(Service.MotionSensor).setCharacteristic(Characteristic.MotionDetected, value);
+   
+    callback();
+}; 
+
+
+eWeLink.prototype.setSmokeState = function (accessory, value, callback) {
+    let platform = this;
+    let deviceId = accessory.context.deviceId;
+    let deviceInformationFromWebApi = platform.devicesFromApi.get(deviceId);
+    //platform.log("setting motionState: ", value);
+    //accessory.getService(Service.MotionSensor).setCharacteristic(Characteristic.MotionDetected, value);
+   
+    callback();
+}; 
 
 eWeLink.prototype.sendWebSocketMessage = function (string, callback) {
     let platform = this;
