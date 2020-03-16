@@ -2380,7 +2380,7 @@ eWeLink.prototype.setTargetPosition = function (accessory, pos, callback) {
                 let string = JSON.stringify(payload);
 
                 if (platform.isSocketOpen) {
-                    platform.wsc.send(string);
+                    platform.sendWebSocketMessage(string, function(){return;});
                     platform.log("[%s] Request sent for %s", accessory.displayName, accessory.context.currentPositionState == 1 ? "moving up" : "moving down");
                     let service = accessory.getService(Service.WindowCovering);
                     service.getCharacteristic(Characteristic.CurrentPosition).updateValue(accessory.context.lastPosition);
@@ -2443,7 +2443,7 @@ eWeLink.prototype.setTargetPosition = function (accessory, pos, callback) {
     if (platform.isSocketOpen) {
 
         setTimeout(function () {
-            platform.wsc.send(string);
+            platform.sendWebSocketMessage(string, function(){return;});
             platform.log("[%s] Request sent for %s", accessory.displayName, moveUp ? "moving up" : "moving down");
 
             var interval = setInterval(function () {
@@ -2472,7 +2472,7 @@ eWeLink.prototype.setFinalBlindsState = function (accessory) {
     if (platform.isSocketOpen) {
 
         setTimeout(function () {
-            platform.wsc.send(string);
+            platform.sendWebSocketMessage(string, function(){return;});
             platform.log("[%s] Request sent to stop moving", accessory.displayName);
             accessory.context.currentPositionState = 2;
 
