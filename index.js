@@ -483,7 +483,7 @@ eWeLink.prototype.configureAccessory = function (accessory) {
             accessory.context.durationDown = group.time_down;
             accessory.context.durationBMU = group.time_botton_margin_up || 0;
             accessory.context.durationBMD = group.time_botton_margin_down || 0;
-            accessory.context.fullOverdrive = (group.full_overdrive || 0) * 1000;
+            accessory.context.fullOverdrive = group.full_overdrive || 0;
             accessory.context.percentDurationDown = (accessory.context.durationDown / 100) * 1000;
             accessory.context.percentDurationUp = (accessory.context.durationUp / 100) * 1000;
             accessory.context.handleApiChanges = group.handle_api_changes || true;
@@ -672,7 +672,7 @@ eWeLink.prototype.addAccessory = function (device, deviceId = null, services = {
         accessory.context.durationDown = services.group.time_down;
         accessory.context.durationBMU = services.group.time_botton_margin_up || 0;
         accessory.context.durationBMD = services.group.time_botton_margin_down || 0;
-        accessory.context.fullOverdrive = (services.group.full_overdrive || 0) * 1000;
+        accessory.context.fullOverdrive = services.group.full_overdrive || 0;
         accessory.context.percentDurationDown = (accessory.context.durationDown / 100) * 1000;
         accessory.context.percentDurationUp = (accessory.context.durationUp / 100) * 1000;
         accessory.context.handleApiChanges = services.group.handle_api_changes || true;
