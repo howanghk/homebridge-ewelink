@@ -2365,7 +2365,7 @@ eWeLink.prototype.setTargetPosition = function (accessory, pos, callback) {
 
             if (diff > 0) {
                 accessory.context.targetTimestamp += diffTime;
-                if (pos==0 || pos==100) accessory.context.targetTimestamp += accessory.context.fullOverdrive;
+                // if (pos==0 || pos==100) accessory.context.targetTimestamp += accessory.context.fullOverdrive;
                 accessory.context.currentTargetPosition = pos;
                 platform.log("[%s] Blinds are moving. Current position: %s, new targuet: %s, adjusting target milliseconds: %s", accessory.displayName, actualPosition, pos, diffTime);
                 callback();
@@ -2375,7 +2375,7 @@ eWeLink.prototype.setTargetPosition = function (accessory, pos, callback) {
                 platform.log("[%s] ==> Revert Blinds moving. Current pos: %s, new targuet: %s, new duration: %s", accessory.displayName, actualPosition, pos, Math.abs(diff));
                 accessory.context.startTimestamp = timestamp;
                 accessory.context.targetTimestamp = timestamp + Math.abs(diff);
-                if (pos==0 || pos==100) accessory.context.targetTimestamp += accessory.context.fullOverdrive;
+                // if (pos==0 || pos==100) accessory.context.targetTimestamp += accessory.context.fullOverdrive;
                 accessory.context.lastPosition = actualPosition;
                 accessory.context.currentTargetPosition = pos;
                 accessory.context.currentPositionState = accessory.context.currentPositionState == 0 ? 1 : 0;
@@ -2431,7 +2431,8 @@ eWeLink.prototype.setTargetPosition = function (accessory, pos, callback) {
             duration = (accessory.context.lastPosition - pos) / 100 * withoutmarginetimeDOWN;
         }
     }
-    if (pos==0 || pos==100) duration += accessory.context.fullOverdrive;
+		if (pos==0 || pos==100) duration += accessory.context.fullOverdrive;
+		if (pos==0 || pos==100) platform.log("[%s] add overdive: %s", accessory.displayName, accessory.context.fullOverdrive);
 
     duration = Math.round(duration * 100) / 100;
 
