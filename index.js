@@ -2438,6 +2438,7 @@ eWeLink.prototype.setTargetPosition = function (accessory, pos, callback) {
 
     accessory.context.startTimestamp = timestamp;
     accessory.context.targetTimestamp = timestamp + (duration * 1000);
+    if (pos==0 || pos==100) accessory.context.targetTimestamp += accessory.context.fullOverdrive;
     accessory.context.currentPositionState = (moveUp ? 0 : 1);
     accessory.getService(Service.WindowCovering).setCharacteristic(Characteristic.PositionState, (moveUp ? 0 : 1));
 
