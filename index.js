@@ -483,7 +483,7 @@ eWeLink.prototype.configureAccessory = function (accessory) {
             accessory.context.durationDown = group.time_down;
             accessory.context.durationBMU = group.time_botton_margin_up || 0;
             accessory.context.durationBMD = group.time_botton_margin_down || 0;
-            accessory.context.fullOverdrive = group.full_overdrive || 0;
+            accessory.context.fullOverdrive = (group.full_overdrive || 0) * 1000;
             accessory.context.percentDurationDown = (accessory.context.durationDown / 100) * 1000;
             accessory.context.percentDurationUp = (accessory.context.durationUp / 100) * 1000;
             accessory.context.handleApiChanges = group.handle_api_changes || true;
@@ -672,7 +672,7 @@ eWeLink.prototype.addAccessory = function (device, deviceId = null, services = {
         accessory.context.durationDown = services.group.time_down;
         accessory.context.durationBMU = services.group.time_botton_margin_up || 0;
         accessory.context.durationBMD = services.group.time_botton_margin_down || 0;
-        accessory.context.fullOverdrive = services.group.full_overdrive || 0;
+        accessory.context.fullOverdrive = (services.group.full_overdrive || 0) * 1000;
         accessory.context.percentDurationDown = (accessory.context.durationDown / 100) * 1000;
         accessory.context.percentDurationUp = (accessory.context.durationUp / 100) * 1000;
         accessory.context.handleApiChanges = services.group.handle_api_changes || true;
@@ -2431,6 +2431,7 @@ eWeLink.prototype.setTargetPosition = function (accessory, pos, callback) {
             duration = (accessory.context.lastPosition - pos) / 100 * withoutmarginetimeDOWN;
         }
     }
+    if (pos==0 || pos==100) duration += accessory.context.fullOverdrive;
 
     duration = Math.round(duration * 100) / 100;
 
@@ -2438,7 +2439,7 @@ eWeLink.prototype.setTargetPosition = function (accessory, pos, callback) {
 
     accessory.context.startTimestamp = timestamp;
     accessory.context.targetTimestamp = timestamp + (duration * 1000);
-    if (pos==0 || pos==100) accessory.context.targetTimestamp += accessory.context.fullOverdrive;
+    // if (pos==0 || pos==100) accessory.context.targetTimestamp += accessory.context.fullOverdrive;
     accessory.context.currentPositionState = (moveUp ? 0 : 1);
     accessory.getService(Service.WindowCovering).setCharacteristic(Characteristic.PositionState, (moveUp ? 0 : 1));
 
