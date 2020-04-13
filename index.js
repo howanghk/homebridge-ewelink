@@ -483,6 +483,7 @@ eWeLink.prototype.configureAccessory = function (accessory) {
             accessory.context.durationDown = group.time_down;
             accessory.context.durationBMU = group.time_botton_margin_up || 0;
             accessory.context.durationBMD = group.time_botton_margin_down || 0;
+            accessory.context.fullOverdrive = group.full_overdrive || 0;
             accessory.context.percentDurationDown = (accessory.context.durationDown / 100) * 1000;
             accessory.context.percentDurationUp = (accessory.context.durationUp / 100) * 1000;
             accessory.context.handleApiChanges = group.handle_api_changes || true;
@@ -671,6 +672,7 @@ eWeLink.prototype.addAccessory = function (device, deviceId = null, services = {
         accessory.context.durationDown = services.group.time_down;
         accessory.context.durationBMU = services.group.time_botton_margin_up || 0;
         accessory.context.durationBMD = services.group.time_botton_margin_down || 0;
+        accessory.context.fullOverdrive = services.group.full_overdrive || 0;
         accessory.context.percentDurationDown = (accessory.context.durationDown / 100) * 1000;
         accessory.context.percentDurationUp = (accessory.context.durationUp / 100) * 1000;
         accessory.context.handleApiChanges = services.group.handle_api_changes || true;
@@ -883,7 +885,7 @@ eWeLink.prototype.updateBlindStateCharacteristic = function (deviceId, switches,
     }
 
     let state = platform.getBlindState(switches, accessory);
-    // platform.log("blindStae_debug:", state) 
+    // platform.log("blindStae_debug:", state)
     // [0,0] = 0 => 2 Stopped
     // [0,1] = 1 => 1 Moving down
     // [1,0] = 2 => 0 Moving up
@@ -1908,7 +1910,7 @@ eWeLink.prototype.getRegion = function (countryCode, callback) {
     data.model = 'iPhone10,6';
     data.romVersion = '11.1.2';
     data.appVersion = '3.5.3';
-    
+
     let query = querystring.stringify(data);
     this.log('getRegion query: %s', query);
 
@@ -2363,6 +2365,7 @@ eWeLink.prototype.setTargetPosition = function (accessory, pos, callback) {
 
             if (diff > 0) {
                 accessory.context.targetTimestamp += diffTime;
+                if (pos==0 || pos==100) accessory.context.targetTimestamp += accessory.context.fullOverdrive;
                 accessory.context.currentTargetPosition = pos;
                 platform.log("[%s] Blinds are moving. Current position: %s, new targuet: %s, adjusting target milliseconds: %s", accessory.displayName, actualPosition, pos, diffTime);
                 callback();
@@ -2372,6 +2375,7 @@ eWeLink.prototype.setTargetPosition = function (accessory, pos, callback) {
                 platform.log("[%s] ==> Revert Blinds moving. Current pos: %s, new targuet: %s, new duration: %s", accessory.displayName, actualPosition, pos, Math.abs(diff));
                 accessory.context.startTimestamp = timestamp;
                 accessory.context.targetTimestamp = timestamp + Math.abs(diff);
+                if (pos==0 || pos==100) accessory.context.targetTimestamp += accessory.context.fullOverdrive;
                 accessory.context.lastPosition = actualPosition;
                 accessory.context.currentTargetPosition = pos;
                 accessory.context.currentPositionState = accessory.context.currentPositionState == 0 ? 1 : 0;
