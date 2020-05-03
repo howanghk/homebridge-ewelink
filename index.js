@@ -2062,6 +2062,7 @@ eWeLink.prototype.getDeviceTypeByUiid = function (uiid) {
         56: "RGB_BALL_LIGHT_4",
         57: "MONOCHROMATIC_BALL_LIGHT",
         59: "MEARICAMERA",
+        77: "MICRO",
         1001: "BLADELESS_FAN",
         1002: "NEW_HUMIDIFIER",
         1003: "WARM_AIR_BLOWER"
@@ -2079,6 +2080,7 @@ eWeLink.prototype.getDeviceChannelCountByType = function (deviceType) {
         SOCKET_POWER: 1,
         GSM_SOCKET: 1,
         POWER_DETECTION_SOCKET: 1,
+        MICRO: 4,
         SOCKET_2: 2,
         GSM_SOCKET_2: 2,
         SWITCH_2: 2,
