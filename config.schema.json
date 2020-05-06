@@ -1,0 +1,37 @@
+{
+  "pluginAlias": "eWeLink",
+  "pluginType": "platform",
+  "headerDisplay": ".",
+  "footerDisplay": ".",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "default": "eWeLink",
+        "title": "Name"
+      },
+      "countryCode": {
+        "title": "2 letters countryCode from where you are (based on your public IP)",
+        "placeholder": "1",
+        "type": "integer",
+        "maximum": 2
+      },
+      "phoneNumber": {
+        "type": "string",
+        "title": "Phone Number",
+        "placeholder": "123456789"
+      },
+      "password": {
+        "type": "string",
+        "title": "Password",
+        "placeholder": "your-login-password"
+      },
+      "imei": {
+        "type": "string",
+        "title": "IMEI",
+        "placeholder": "01234567-89AB-CDEF-0123-456789ABCDEF"
+      }
+            }
+        }
+      }
