@@ -773,7 +773,7 @@ eWeLink.prototype.addAccessory = function (device, deviceId = null, services = {
         accessory.context.switches = switchesAmount;
     }
 
-    this.accessories.set(device.deviceid, accessory);
+    this.accessories.set(deviceId ? deviceId : device.deviceid, accessory);
 
     this.api.registerPlatformAccessories("homebridge-eWeLink",
         "eWeLink", [accessory]);
