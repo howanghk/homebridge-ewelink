@@ -753,7 +753,9 @@ eWeLink.prototype.addAccessory = function (device, deviceId = null, services = {
 
     accessory.on('identify', function (paired, callback) {
         platform.log(accessory.displayName, "Identify not supported");
-        callback();
+	try {
+            callback();
+	} catch (e) { }
     });
 
     accessory.getService(Service.AccessoryInformation).setCharacteristic(Characteristic.SerialNumber, device.extra.extra.mac);
