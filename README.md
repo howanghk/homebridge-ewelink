@@ -1,5 +1,7 @@
 # homebridge-ewelink-max
 
+[![certified-hoobs-plugin](https://badgen.net/badge/HOOBS/Certified/yellow)](https://plugins.hoobs.org) [![hoobs-support](https://badgen.net/badge/HOOBS/Support/yellow)](https://support.hoobs.org)
+
 Homebridge plugin to control Sonoff relays with OEM firmware. It uses the same API as the iOS app to communicate with your devices.
 
 The platform will dynamically add/remove devices based on what is configured in your eWeLink account.
