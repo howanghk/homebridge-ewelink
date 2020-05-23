@@ -1,0 +1,48 @@
+{
+    "plugin_alias": "EweLink Max",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "platform": {
+                "title": "Platform",
+                "type": "string",
+                "const": "eWeLink",
+                "readOnly": true
+            },
+            "name": {
+                "title": "Name",
+                "type": "string",
+                "const": "eWeLink",
+                "readOnly": true
+            },
+            "countryCode": {
+                "title": "The country code of your ewelink account without + prefix, see [list of country codes on Wikipedia](https://en.wikipedia.org/wiki/List_of_country_calling_codes)",
+                "type": "string"
+            },
+            "phoneNumber": {
+                "title": "The login phone number of your ewelink account, do not include this if you login with email",
+                "type": "string"
+            },
+            "email": {
+                "title": "The login email of your ewelink account, do not include this if you login with phone number",
+                "type": "string"
+            },
+            "password": {
+                "title": "Your ewelink account login password",
+                "type": "string"
+            },
+            "imei": {
+                "title": "This can be any valid UUID, get one with an [online generator](https://www.famkruithof.net/uuid/uuidgen?numReq=1&typeReq=4&uppercaseReq=true)",
+                "type": "string"
+            },
+            
+            "groups": {
+                "title": "You can group channels of multi-switch model to simulate another accessory instead of having each switch separately.",
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}
