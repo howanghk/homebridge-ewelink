@@ -56,7 +56,7 @@ function eWeLink(log, config, api) {
         config['webSocketApi'] = 'us-pconnect3.coolkit.cc';
     }
 
-    platform.log("Intialising eWeLink");
+    platform.log("Initialising eWeLink");
 
     // Groups configuration
     this.groups = new Map();
@@ -264,10 +264,10 @@ function eWeLink(log, config, api) {
                                             platform.log('Group type error ! Device [%s], ID : [%s] will not be added', deviceToAdd.name, deviceToAdd.deviceid);
                                             break;
                                     }
-                                } else if (deviceToAdd.extra.extra.model === "PSF-BFB-GL") {
+                                } else if (deviceToAdd.extra.extra.model === "PSF-BFB-GL" || deviceToAdd.extra.extra.model === "PSF-B04-GL") {
                                     services.fan = true;
                                     services.switch = false;
-                                    platform.log('Device [%s], ID : [%s] will be added as a fam', deviceToAdd.name, deviceToAdd.deviceid);
+                                    platform.log('Device [%s], ID : [%s] will be added as a fan', deviceToAdd.name, deviceToAdd.deviceid);
                                     platform.addAccessory(deviceToAdd, deviceToAdd.deviceid, services);
                                 } else {
                                     for (let i = 0; i !== switchesAmount; i++) {
