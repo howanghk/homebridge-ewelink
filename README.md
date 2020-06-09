@@ -14,14 +14,14 @@ It is possible to continue to use the OEM functionality (eWeLink app, Google Hom
 
 ## Why max?
 
-This is a fork of [homebridge-ewelink](https://github.com/gbro115/homebridge-ewelink), which is not being actively updated. There is another package named [homebridge-ewelin-plus](https://www.npmjs.com/package/homebridge-ewelink-plus) which is not updated for 6 months at the time of writing. The name is inspired by Apple's naming convention.
+This is a fork of [homebridge-ewelink](https://github.com/gbro115/homebridge-ewelink), which is not being actively updated. There is another package named [homebridge-ewelin-plus](https://www.npmjs.com/package/homebridge-ewelink-plus) which has not been updated for 6 months at the time of writing. The name is inspired by Apple's naming convention.
 
-This fork have the following notable changes / improvements:
+This fork has the following notable changes / improvements:
 
-* Support login with phone number / email and password, which save your time from obtaining the authentication token with Charles once in a while.
-* Support sending heartbeat on the WebSocket connection, which greatly reduce the interval of reconnects, hence better stability.
-* Support obtaining the correct API / WebSocket API host automatically, so you don't need to obtain these information with Charles.
-* Support for groups to simulate accessory. Currrently only blind (WindowCovering) is supported.
+* Supports login with phone number / email and password, which saves time from obtaining the authentication token with Charles once in a while.
+* Supports sending heartbeats on the WebSocket connection, which greatly reduces the interval of reconnections, hence better stability.
+* Supports obtaining the correct API / WebSocket API host automatically, so you don't need to obtain this with Charles.
+* Supports groups to simulate accessories. Currently only 'blind' (WindowCovering) is supported.
 
 ## Shortcomings
 
@@ -39,9 +39,9 @@ sudo npm -g install homebridge-ewelink-max
 
 2) Add to the platforms[] section of config.json.
 
-  * `countryCode` - The country code of your ewelink account without + prefix, see [list of country codes on Wikipedia](https://en.wikipedia.org/wiki/List_of_country_calling_codes)
-  * `phoneNumber` - The login phone number of your ewelink account, do not include this if you login with email
-  * `email` - The login email of your ewelink account, do not include this if you login with phone number
+  * `countryCode` - The country code of your eWeLink account without + prefix, see [list of country codes on Wikipedia](https://en.wikipedia.org/wiki/List_of_country_calling_codes)
+  * `phoneNumber` - The login phone number of your eWeLink account, do not include this if you login with your email
+  * `email` - The login email of your ewelink account, do not include this if you login with your phone number
   * `password` - Your ewelink account login password
   * `imei` - This can be any valid UUID, get one with an [online generator](https://www.famkruithof.net/uuid/uuidgen?numReq=1&typeReq=4&uppercaseReq=true)
 
@@ -91,28 +91,28 @@ If you use email login, the platform section should look like this:
 
 ### Groups
 
-You can group channels of multi-switch model to simulate another accessory instead of having each switch separately.
-Currently, only blind (WindowCovering) is supported.
+You can group channels of multi-switch models to simulate another accessory instead of having each switch separately.
+Currently only 'blind' (WindowCovering) is supported.
 
 #### Blind
 
 *(Tested with Sonoff Dual)*
-Simulate  dual motors blind, one to move up and other to move down, without start or end detector.
-The duration of move is calculed from the up/down time.
+Simulate dual motor blinds, one to move up and other to move down, without start or end detector.
+The duration of movement is calculed from the up/down time.
 Handle realtime response when setting position other than *Open* or *Close*.
-Also responding to event from API, so you can use Home or eWelink App and have up-to-date state.
-The device is automatically reconfigured to turn off all options (power-on response, inching, ...) including disable Interlock that is incompatible with the behavior of this group.
+Also responds to events from API, so you can use Home or eWelink App and always have an up-to-date state.
+The device is automatically reconfigured to turn off all options (power-on response, inching, etc) including disable interlock that is incompatible with the behaviour of this group.
 
 *To improve: 4 channels models can only use 2 channels, others will be disabled.*
 
 ##### Group configuration:
 
 * **type** : blind
-* **deviceId** : Device ID from eWelink app
-* **relay_up**: Relay number for the UP motor
-* **relay_down**: Relay number for the DOWN motor
-* **time_up**: Total time in second from complete closing to full opening.
-* **time_down**: Total time in second from complete opening to full closing.
+* **deviceId** : Device ID from eWeLink app
+* **relay_up**: Relay number for the up motor
+* **relay_down**: Relay number for the down motor
+* **time_up**: Total time in seconds to fully open blinds (from closed)
+* **time_down**: Total time in seconds to completely close blinds (from open)
 * **handle_api_changes**: In case you don't want group respond to eWeLink App changes. Default _true_.
 * Please refer to [homebridge-sonoff-stateful-blind](https://github.com/manolab/homebridge-sonoff-stateful-blinds#readme) project for explanations of the last two options.
 
@@ -141,11 +141,11 @@ The device is automatically reconfigured to turn off all options (power-on respo
 
 ## A note on login session
 
-An authentication token is generated every time your device's app logs in to the eWeLink service.
+An authentication token is generated every time your device's app logs into the eWeLink service.
 
 You can only have one authentication token per user account.
 
-Therefore if you use the HomeKit app and eWeLink app at the same time, they will fight each other for the login session. They should both work individually. You can leave homebridge running when using the eWeLink app.
+Therefore if you use the HomeKit app and eWeLink app at the same time, they will fight each other for the login session. They should both work individually. You can leave Homebridge running when using the eWeLink app.
 
 ### Use another login to avoid being logged off from the eWeLink app
 
@@ -153,10 +153,10 @@ Therefore if you use the HomeKit app and eWeLink app at the same time, they will
 2. Then log in with the new account on another mobile device (you have to keep both accounts connected and with eWeLink on the screen).
 3. Go to your eWeLink, select your Sonoff device and share it with the other account.
 4. A popup should appear on the other mobile device, accept it.
-5. Use the second account as your plugin login (and never use this account on eWeLink anymore to avoid being logged off)
+5. Use the second account as your plugin login (and never use this account on eWeLink anymore to avoid being logged off).
 6. Be happy and never get a "session expired" message again.
 
-Each account is suitable for the plug-in, just make sure to use each once (one per mobile device / homebridge).
+Each account is suitable for the plug-in, just make sure to use each once (one per mobile device / Homebridge).
 
 ## Troubleshooting
 
@@ -190,7 +190,7 @@ I've attempted to make the logging as useful as possible. If you have any sugges
 [12/13/2017, 9:39:12 PM] [eWeLink] WebSocket messge received:  {"error":0,"deviceid":"XXXXXXX","apikey":"XXXXXXX","sequence":"1513219151735"}
 ```
 
-The plugin will also listen for announcements via a persistent web socket. This allows you to control the device from the likes of Google Home & have Homebridge be kept up-to-date
+The plugin will also listen for announcements via a persistent web socket. This allows you to control the device from the likes of Google Home & have Homebridge be kept up-to-date.
 
 *Hey Google, turn on the fan*
 
@@ -205,4 +205,4 @@ The plugin will also listen for announcements via a persistent web socket. This 
 
 <https://github.com/websockets/ws/wiki/Websocket-client-implementation-for-auto-reconnect>
 
-<https://github.com/manolab/homebridge-sonoff-stateful-blinds)>
+<https://github.com/manolab/homebridge-sonoff-stateful-blinds>
