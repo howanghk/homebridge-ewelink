@@ -16,28 +16,32 @@
                 "readOnly": true
             },
             "countryCode": {
-                "title": "The country code of your ewelink account without + prefix, see [list of country codes on Wikipedia](https://en.wikipedia.org/wiki/List_of_country_calling_codes)",
-                "type": "string"
+                "title": "The telephone country code linked to your eWeLink account (without the +).",
+                "type": "string",
+                "required": true
             },
             "phoneNumber": {
-                "title": "The login phone number of your ewelink account, do not include this if you login with email",
+                "title": "The phone number linked to your eWeLink account. Leave blank if you use your email instead.",
                 "type": "string"
             },
             "email": {
-                "title": "The login email of your ewelink account, do not include this if you login with phone number",
+                "title": "The email address linked to your eWeLink account. Leave blank if you use your phone number instead.",
                 "type": "string"
             },
             "password": {
-                "title": "Your ewelink account login password",
-                "type": "string"
+                "title": "The password for your eWeLink account.",
+                "type": "string",
+                "required": true,
             },
             "imei": {
-                "title": "This can be any valid UUID, get one with an [online generator](https://www.famkruithof.net/uuid/uuidgen?numReq=1&typeReq=4&uppercaseReq=true)",
-                "type": "string"
+                "title": "IMEI - Only change this if you need to.",
+                "type": "string",
+                "default": "01234567-89AB-CDEF-0123-456789ABCDEF",
+                "required": true,
             },
             
             "groups": {
-                "title": "You can group channels of multi-switch model to simulate another accessory instead of having each switch separately.",
+                "title": "You can group channels of multi-switch devices to simulate another accessory instead of having each switch separately. Currently, only 'blind' (WindowCovering) is supported.",
                 "type": "array",
                 "items": {
                     "type": "string"
