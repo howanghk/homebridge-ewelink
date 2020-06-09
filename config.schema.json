@@ -1,6 +1,7 @@
 {
    "pluginAlias":"eWeLink",
    "pluginType":"platform",
+   "singular": true,
    "headerDisplay":"Homebridge plugin to control Sonoff relays with OEM firmware. It uses the same API as the iOS app to communicate with your devices.",
    "footerDisplay":"If you have any suggestions, please open an issue on [GitHub](https://github.com/howanghk/homebridge-ewelink/issues).",
    "schema":{
@@ -9,12 +10,13 @@
          "name":{
             "type":"string",
             "title":"Name",
-            "default":"eWeLink"
+            "default":"eWeLink",
+            "description": "The name that will appear in your Homebridge log"
          },
          "countryCode":{
             "type":"integer",
             "title":"Country Code",
-            "description":"The telephone country code from where you are (based on your public IP).",
+            "description":"The telephone country code linked to your eWeLink account (without the +).",
             "placeholder":"1",
             "maximum":999
          },
@@ -58,7 +60,7 @@
                   "deviceId":{
                      "type":"string",
                      "title":"Device ID",
-                     "description":"Device ID from your eWelink app."
+                     "description":"Device ID from your eWeLink app."
                   },
                   "relay_up":{
                      "type":"number",
