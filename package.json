@@ -23,6 +23,7 @@
     "url": "https://github.com/howanghk/homebridge-ewelink"
   },
   "dependencies": {
+    "multicast-dns": "^7.2.2",
     "nonce": "^1.0.4",
     "request-json": "^0.6.2",
     "ws": "^3.3.2"
