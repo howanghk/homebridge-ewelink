@@ -7,6 +7,8 @@ let request = require('request-json');
 let nonce = require('nonce')();
 let crypto = require('crypto');
 
+let LanClient = require('./lib/sonoffLanModeApi');
+
 let wsc;
 let isSocketOpen = false;
 let sequence = 0;
@@ -126,8 +128,6 @@ function eWeLink(log, config, api) {
                         return;
                     }
 
-                    let newDevicesToAdd = new Map();
-
                     body.forEach((device) => {
                         platform.apiKey = device.apikey;
                         // Skip Sonoff Bridge as it is not supported by this plugin
@@ -195,6 +195,14 @@ function eWeLink(log, config, api) {
                             accessory.getService(Service.AccessoryInformation).setCharacteristic(Characteristic.Manufacturer, deviceInformationFromWebApi.productModel);
                             accessory.getService(Service.AccessoryInformation).setCharacteristic(Characteristic.Model, deviceInformationFromWebApi.extra.extra.model + ' (' + deviceInformationFromWebApi.uiid + ')');
                             accessory.getService(Service.AccessoryInformation).setCharacteristic(Characteristic.FirmwareRevision, deviceInformationFromWebApi.params.fwVersion);
+
+                            /* Add a lan client and add it to the context, if the feature is enabled  */
+                            if (this.config['experimentalLanClient']) {
+                                this.log.debug('Pre lan client config (checkIfDeviceIsAlreadyConfigured): %o', device);
+                                const lanClient = new LanClient(deviceInformationFromWebApi, this.log);
+                                lanClient.start();
+                                accessory.context.lanClient = lanClient;
+                            }
 
                             if (switchesAmount > 1) {
                                 if (platform.groups.has(deviceInformationFromWebApi.deviceid)) {
@@ -494,10 +502,53 @@ eWeLink.prototype.configureAccessory = function (accessory) {
         accessory.getService(Service.Switch)
             .getCharacteristic(Characteristic.On)
             .on('set', function (value, callback) {
-                platform.setPowerState(accessory, value, callback);
+
+                let localDevice = undefined;
+                if (accessory.context.lanClient) {
+                    /* Try to get the local device state if a lan client exists */
+                    localDevice = accessory.context.lanClient.getLocalDevice();
+                }
+                
+                if(localDevice && localDevice.data.type === 'plug') {
+                    /* We can do a local device call for this */
+                    accessory.context.lanClient.setSwitchStatus(
+                        accessory, value, callback);
+                } else {
+                    /* Do a web call */
+                    platform.setPowerState(accessory, value, callback);
+                }
             })
             .on('get', function (callback) {
-                platform.getPowerState(accessory, callback);
+
+                let localDevice = undefined;
+                if (accessory.context.lanClient && 
+                        accessory.context.lanClient.getLocalDevice) {
+                    /* Only get the local device state if there is a lan client and it
+                     * has the expected function. 
+                     * This latter check seems to be required when a device is partially
+                     * restored and homebridge tries to get the state before it is fully
+                     * set up. 
+                     */
+                    localDevice = accessory.context.lanClient.getLocalDevice();
+                }
+                    
+                let status = undefined;
+                if (localDevice) {
+                    if (localDevice.data.type === 'plug') {
+                        status = accessory.context.lanClient.getSwitchStatus();
+                    } else if (localDevice.data.type === 'strip') {
+                        status = accessory.context.lanClient.getStripOutletStatus(
+                            accessory.context.channel);
+                    }
+                } 
+
+                if (status !== undefined) {
+                    /* Got a response from the lan client, call the callback */
+                    callback(null, status);
+                } else {
+                    /* Try the API */
+                    platform.getPowerState(accessory, callback);
+                }
             });
 
     }
@@ -631,6 +682,14 @@ eWeLink.prototype.addAccessory = function (device, deviceId = null, services = {
 
     accessory.reachable = device.online === 'true';
 
+    /* Add a lan client and add it to the context, if the feature is enabled  */
+    if (this.config['experimentalLanClient']) {
+        this.log.debug('Pre lan client config (addAccessory): %o', device)
+        const lanClient = new LanClient(device, this.log);
+        lanClient.start();
+        accessory.context.lanClient = lanClient;
+    }
+
     if (services.fan) {
         var fan = accessory.addService(Service.Fanv2, device.name);
         var light = accessory.addService(Service.Lightbulb, device.name + ' Light');
@@ -705,10 +764,53 @@ eWeLink.prototype.addAccessory = function (device, deviceId = null, services = {
         accessory.addService(Service.Switch, deviceName)
             .getCharacteristic(Characteristic.On)
             .on('set', function (value, callback) {
-                platform.setPowerState(accessory, value, callback);
+
+                let localDevice = undefined;
+                if (accessory.context.lanClient) {
+                    /* Try to get the local device state if a lan client exists */
+                    localDevice = accessory.context.lanClient.getLocalDevice();
+                }
+
+                if(localDevice && localDevice.data.type === 'plug') {
+                    /* A local device state exists. We can do a local device call for this */
+                    accessory.context.lanClient.setSwitchStatus(
+                        accessory, value, callback);
+                } else {
+                    /* Do a web call */
+                    platform.setPowerState(accessory, value, callback);
+                }
             })
             .on('get', function (callback) {
-                platform.getPowerState(accessory, callback);
+
+                let localDevice = undefined;
+                if (accessory.context.lanClient && 
+                        accessory.context.lanClient.getLocalDevice) {
+                    /* Only get the local device state if there is a lan client and it
+                     * has the expected function. 
+                     * This latter check seems to be required when a device is partially
+                     * restored and homebridge tries to get the state before it is fully
+                     * set up. 
+                     */
+                    localDevice = accessory.context.lanClient.getLocalDevice();
+                }
+                    
+                let status = undefined;
+                if (localDevice) {
+                    if (localDevice.data.type === 'plug') {
+                        status = accessory.context.lanClient.getSwitchStatus();
+                    } else if (localDevice.data.type === 'strip') {
+                        status = accessory.context.lanClient.getStripOutletStatus(
+                            accessory.context.channel);
+                    }
+                } 
+
+                if (status !== undefined) {
+                    /* Got a response from the lan client, call the callback */
+                    callback(null, status);
+                } else {
+                    /* Try the API */
+                    platform.getPowerState(accessory, callback);
+                }
             });
     }
     if (services.thermostat) {
@@ -1063,8 +1165,6 @@ eWeLink.prototype.getPowerState = function (accessory, callback) {
 
         body = body.devicelist;
 
-        let size = Object.keys(body).length;
-
         if (body.length < 1) {
             callback('An error was encountered while requesting a list of devices to interrogate power status for your device');
             accessory.reachable = false;
@@ -1181,8 +1281,6 @@ eWeLink.prototype.getFanLightState = function (accessory, callback) {
 
         body = body.devicelist;
 
-        let size = Object.keys(body).length;
-
         if (body.length < 1) {
             callback('An error was encountered while requesting a list of devices to interrogate power status for your device');
             accessory.reachable = false;
@@ -1267,8 +1365,6 @@ eWeLink.prototype.getFanState = function (accessory, callback) {
         }
 
         body = body.devicelist;
-
-        let size = Object.keys(body).length;
 
         if (body.length < 1) {
             callback('An error was encountered while requesting a list of devices to interrogate power status for your device');
@@ -1355,8 +1451,6 @@ eWeLink.prototype.getFanSpeed = function (accessory, callback) {
 
         body = body.devicelist;
 
-        let size = Object.keys(body).length;
-
         if (body.length < 1) {
             callback('An error was encountered while requesting a list of devices to interrogate power status for your device');
             accessory.reachable = false;
@@ -1437,8 +1531,6 @@ eWeLink.prototype.getCurrentTemperature = function (accessory, callback) {
 
         body = body.devicelist;
 
-        let size = Object.keys(body).length;
-
         if (body.length < 1) {
             callback('An error was encountered while requesting a list of devices to interrogate current temperature for your device');
             accessory.reachable = false;
@@ -1515,8 +1607,6 @@ eWeLink.prototype.getCurrentHumidity = function (accessory, callback) {
         }
 
         body = body.devicelist;
-
-        let size = Object.keys(body).length;
 
         if (body.length < 1) {
             callback('An error was encountered while requesting a list of devices to interrogate current humidity for your device');
@@ -2274,7 +2364,6 @@ eWeLink.prototype.getPositionState = function (accessory, callback) {
 
         body = body.devicelist;
 
-        let size = Object.keys(body).length;
         if (body.length < 1) {
             callback('An error was encountered while requesting a list of devices to interrogate power status for your device');
             accessory.reachable = false;
@@ -2414,7 +2503,7 @@ eWeLink.prototype.setTargetPosition = function (accessory, pos, callback) {
     }
 
     accessory.context.currentTargetPosition = pos;
-    moveUp = (pos > accessory.context.lastPosition);
+    let moveUp = (pos > accessory.context.lastPosition);
 
     var withoutmarginetimeUP;
     var withoutmarginetimeDOWN;
