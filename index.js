@@ -129,7 +129,7 @@ function eWeLink(log, config, api) {
 
                         platform.log("Connecting to the WebSocket API at [%s]", url);
 
-                        platform.wsc = new WebSocketClient(platform.log);
+                        platform.wsc = new WebSocketClient(platform.log, platform.config);
 
                         platform.wsc.open(url);
 
@@ -202,38 +202,6 @@ function eWeLink(log, config, api) {
                                     }, json.config.hbInterval * 1000);
                                 }
                             }
-
-                        };
-
-                        platform.wsc.onopen = function (e) {
-
-                            platform.isSocketOpen = true;
-
-                            // We need to authenticate upon opening the connection
-
-                            let time_stamp = new Date() / 1000;
-                            let ts = Math.floor(time_stamp);
-
-                            // Here's the eWeLink payload as discovered via Charles
-                            let payload = {};
-                            payload.action = "userOnline";
-                            payload.userAgent = 'app';
-                            payload.version = 6;
-                            payload.nonce = '' + nonce();
-                            payload.apkVesrion = "1.8";
-                            payload.os = 'ios';
-                            payload.at = config.authenticationToken;
-                            payload.apikey = config.apiKey;
-                            payload.ts = '' + ts;
-                            payload.model = 'iPhone10,6';
-                            payload.romVersion = '11.1.2';
-                            payload.sequence = platform.getSequence();
-
-                            let string = JSON.stringify(payload);
-
-                            platform.log('Sending login request [%s]', string);
-
-                            platform.wsc.send(string);
 
                         };
 
