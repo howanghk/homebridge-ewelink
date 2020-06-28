@@ -142,12 +142,15 @@ function eWeLink(log, config, api) {
 
                             platform.log("WebSocket messge received: ", message);
 
-                            let json;
-                            try {
-                                json = JSON.parse(message);
-                            } catch (e) {
-                                return;
-                            }
+                            //TODO: REMOVE CODE - Now parsed before onmessage called
+                            // let json;
+                            // try {
+                            //     json = JSON.parse(message);
+                            // } catch (e) {
+                            //     return;
+                            // }
+                            //TODO: END REMOVE CODE
+                            let json = message;
 
                             if (json.hasOwnProperty("action")) {
 
@@ -193,14 +196,19 @@ function eWeLink(log, config, api) {
                                     }
 
 
+                                } else if (json.action === 'sysmsg') {
+                                    /* System message, this is how we will be told about device online statuses */
+                                    platform.log('Updated status for device %s, online: %s', json.deviceid, json.params.online);
                                 }
 
-                            } else if (json.hasOwnProperty('config') && json.config.hb && json.config.hbInterval) {
-                                if (!platform.hbInterval) {
-                                    platform.hbInterval = setInterval(function () {
-                                        platform.wsc.send('ping');
-                                    }, json.config.hbInterval * 1000);
-                                }
+                            // TODO: REMOVE CODE - NOW IN WEBSOCKETCLIENT
+                            // } else if (json.hasOwnProperty('config') && json.config.hb && json.config.hbInterval) {
+                            //     if (!platform.hbInterval) {
+                            //         platform.hbInterval = setInterval(function () {
+                            //             platform.wsc.send('ping');
+                            //         }, json.config.hbInterval * 1000);
+                            //     }
+                            //TODO: END REMOVE CODE
                             }
 
                         };
@@ -343,7 +351,7 @@ eWeLink.prototype.configureAccessory = function (accessory) {
             .on('set', function (value, callback) {
 
                 let localDevice = undefined;
-                if (accessory.context.lanClient) {
+                if (accessory.context.lanClient && accessory.context.lanClient.getLocalDevice) {
                     /* Try to get the local device state if a lan client exists */
                     localDevice = accessory.context.lanClient.getLocalDevice();
                 }
@@ -1108,129 +1116,271 @@ eWeLink.prototype.updateFanSpeedCharacteristic = function (deviceId, state1, sta
         .setCharacteristic(Characteristic.RotationSpeed, speed);
 };
 
-eWeLink.prototype.getPowerState = function (accessory, callback) {
-    let platform = this;
+/**
+ * Method to process a device power state response. 
+ * 
+ * This is seperated out to avoid duplication in the getPowerStateXXX
+ * methods. 
+ * 
+ * @param accesory the accessory the power state request was made for
+ * @param deviceState the device state that was returned by the API. The "params" and "deviceid" fields are consistent in the two responses. Other fields may vary or be missing. 
+ * @param callback the callback function to be called when the state is processed. This takes two arguments, the error message and the value. 
+ */
+eWeLink.prototype.processPowerState = function(accessory, deviceState, callback) {
 
-    if (!this.webClient) {
-        callback('this.webClient not yet ready while obtaining power status for your device');
+    if (accessory.context.switches > 1) {
+        if (deviceState.params.switches[accessory.context.channel - 1].switch === 'on') {
+            accessory.reachable = true;
+            this.log('API reported that [%s] CH %s is On', accessory.displayName, accessory.context.channel);
+            callback(null, 1);
+            return;
+        } else if (deviceState.params.switches[accessory.context.channel - 1].switch === 'off') {
+            accessory.reachable = true;
+            this.log('API reported that [%s] CH %s is Off', accessory.displayName, accessory.context.channel);
+            callback(null, 0);
+            return;
+        } else {
+            accessory.reachable = false;
+            this.log('API reported an unknown status for device [%s](%s)', accessory.displayName, accessory.context.deviceId);
+            callback('API returned an unknown status for device ' + accessory.displayName);
+            return;
+        }
+
+    } else {
+        if (deviceState.params.switch === 'on') {
+            accessory.reachable = true;
+            this.log('API reported that [%s] is On', accessory.displayName);
+            callback(null, 1);
+            return;
+        } else if (deviceState.params.switch === 'off') {
+            accessory.reachable = true;
+            this.log('API reported that [%s] is Off', accessory.displayName);
+            callback(null, 0);
+            return;
+        } else {
+            accessory.reachable = false;
+            this.log('API reported an unknown status for device [%s](%s)', accessory.displayName, accessory.context.deviceId);
+            callback('API returned an unknown status for device ' + accessory.displayName);
+            return;
+        }
+
+    }
+
+}
+
+eWeLink.prototype.getPowerStateWebSocket = function(accessory, callback) {
+
+    if (! (this.wsc.isSocketOpen && this.wsc.isSocketOpen())) {
+        callback('websocket not ready while obtaining power status for your device');
         accessory.reachable = false;
         return;
     }
 
-    platform.log("Requesting power state for [%s]", accessory.displayName);
+    let deviceId = accessory.context.deviceId;
 
-    this.webClient.get('/api/user/device?' + this.getArguments(), function (err, res, body) {
+    if (accessory.context.switches > 1) {
+        deviceId = deviceId.replace("CH" + accessory.context.channel, "");
+    }
 
-        if (err) {
-            if (res && [503].indexOf(parseInt(res.statusCode)) !== -1) {
-                // callback('An error was encountered while requesting a list of devices to interrogate power status for your device');
-                platform.log('Sonoff API 503 error');
-                setTimeout(function() {
-                    platform.getPowerState(accessory, callback);
-                }, 1000);
-            } else {
-                platform.log("An error was encountered while requesting a list of devices while interrogating power status. Verify your configuration options. Error was [%s]", err);
-            }
-            return;
-        } else if (!body) {
-            platform.log("An error was encountered while requesting a list of devices while interrogating power status. No data in response.", err);
-            return;
-        } else if (body.hasOwnProperty('error') && body.error != 0) {
-            platform.log("An error was encountered while requesting a list of devices while interrogating power status. Verify your configuration options. Response was [%s]", JSON.stringify(body));
-            if ([401, 402].indexOf(parseInt(body.error)) !== -1) {
-                platform.relogin();
-            }
-            callback('An error was encountered while requesting a list of devices to interrogate power status for your device');
-            return;
-        }
+    //TODO: Add back in a conditional option for using websockets or
+    // the ewelink API
+    
+    this.wsc.getDeviceStatus(deviceId)
+        .then(device => {
+            this.log('getDeviceStatus response: %o', device);
+        
+            //TODO: CHECK HOW OFFLINE IS REPRESENTED
+            // if (device.online !== true) {
+            //     accessory.reachable = false;
+            //     platform.log("Device [%s] was reported to be offline by the API", accessory.displayName);
+            //     callback('API reported that [%s] is not online', device.name);
+            //     return;
+            // }
+            //TODO: END CHECK
 
-        body = body.devicelist;
+            this.processPowerState(accessory, device, callback);
+        }).catch(err => {
+            this.log('getDeviceStatus error: %s', err);
+            callback('getDeviceStatus error: ' + err);
+        });
 
-        if (body.length < 1) {
-            callback('An error was encountered while requesting a list of devices to interrogate power status for your device');
-            accessory.reachable = false;
-            return;
-        }
 
-        let deviceId = accessory.context.deviceId;
+}
 
-        if (accessory.context.switches > 1) {
-            deviceId = deviceId.replace("CH" + accessory.context.channel, "");
-        }
+eWeLink.prototype.getPowerStateHttp = function (accessory, callback) {
+    
+    //TODO: SHOULD CACHE WEB CLIENT IN EWELINKAPI
+    // if (!this.webClient) {
+    //     callback('this.webClient not yet ready while obtaining power status for your device');
+    //     accessory.reachable = false;
+    //     return;
+    // }
 
-        let filteredResponse = body.filter(device => (device.deviceid === deviceId));
+    this.log("Requesting power state for [%s]", accessory.displayName);
 
-        if (filteredResponse.length === 1) {
+    let deviceId = accessory.context.deviceId;
 
-            let device = filteredResponse[0];
+    if (accessory.context.switches > 1) {
+        deviceId = deviceId.replace("CH" + accessory.context.channel, "");
+    }
 
-            if (device.deviceid === deviceId) {
+    this.ewelinkApiClient.getDeviceStatus(deviceId)
+        .then(device => {
 
-                if (device.online !== true) {
-                    accessory.reachable = false;
-                    platform.log("Device [%s] was reported to be offline by the API", accessory.displayName);
-                    callback('API reported that [%s] is not online', device.name);
-                    return;
-                }
-
-                if (accessory.context.switches > 1) {
-                    if (device.params.switches[accessory.context.channel - 1].switch === 'on') {
-                        accessory.reachable = true;
-                        platform.log('API reported that [%s] CH %s is On', device.name, accessory.context.channel);
-                        callback(null, 1);
-                        return;
-                    } else if (device.params.switches[accessory.context.channel - 1].switch === 'off') {
-                        accessory.reachable = true;
-                        platform.log('API reported that [%s] CH %s is Off', device.name, accessory.context.channel);
-                        callback(null, 0);
-                        return;
-                    } else {
-                        accessory.reachable = false;
-                        platform.log('API reported an unknown status for device [%s]', accessory.displayName);
-                        callback('API returned an unknown status for device ' + accessory.displayName);
-                        return;
-                    }
-
-                } else {
-                    if (device.params.switch === 'on') {
-                        accessory.reachable = true;
-                        platform.log('API reported that [%s] is On', device.name);
-                        callback(null, 1);
-                        return;
-                    } else if (device.params.switch === 'off') {
-                        accessory.reachable = true;
-                        platform.log('API reported that [%s] is Off', device.name);
-                        callback(null, 0);
-                        return;
-                    } else {
-                        accessory.reachable = false;
-                        platform.log('API reported an unknown status for device [%s]', accessory.displayName);
-                        callback('API returned an unknown status for device ' + accessory.displayName);
-                        return;
-                    }
-
-                }
-
+            if (device.online !== true) {
+                accessory.reachable = false;
+                this.log("Device [%s] was reported to be offline by the API", accessory.displayName);
+                callback('API reported that [%s] is not online', device.name);
+                return;
             }
 
-        } else if (filteredResponse.length > 1) {
-            // More than one device matches our Device ID. This should not happen.
-            platform.log("ERROR: The response contained more than one device with Device ID [%s]. Filtered response follows.", device.deviceid);
-            platform.log(filteredResponse);
-            callback("The response contained more than one device with Device ID " + device.deviceid);
+            this.processPowerState(accessory, device, callback);
 
-        } else if (filteredResponse.length < 1) {
+        }).catch(err => {
+            callback(err);
+        });
 
-            // The device is no longer registered
+}
 
-            platform.log("Device [%s] did not exist in the response.", accessory.displayName);
-            //platform.removeAccessory(accessory);
+eWeLink.prototype.getPowerState = function(accessory, callback) {
 
-        }
+    if (this.config.experimentalWebSocketClient) {
+        this.getPowerStateWebSocket(accessory, callback);
+    } else {
+        this.getPowerStateHttp(accessory, callback);
+    }
 
-    });
+}
 
-};
+//TODO: REMOVE CODE
+// eWeLink.prototype.getPowerState = function (accessory, callback) {
+//     let platform = this;
+
+    
+
+//     if (!this.webClient) {
+//         callback('this.webClient not yet ready while obtaining power status for your device');
+//         accessory.reachable = false;
+//         return;
+//     }
+
+//     platform.log("Requesting power state for [%s]", accessory.displayName);
+
+    
+
+//     this.webClient.get('/api/user/device?' + this.getArguments(), function (err, res, body) {
+
+//         if (err) {
+//             if (res && [503].indexOf(parseInt(res.statusCode)) !== -1) {
+//                 // callback('An error was encountered while requesting a list of devices to interrogate power status for your device');
+//                 platform.log('Sonoff API 503 error');
+//                 setTimeout(function() {
+//                     platform.getPowerState(accessory, callback);
+//                 }, 1000);
+//             } else {
+//                 platform.log("An error was encountered while requesting a list of devices while interrogating power status. Verify your configuration options. Error was [%s]", err);
+//             }
+//             return;
+//         } else if (!body) {
+//             platform.log("An error was encountered while requesting a list of devices while interrogating power status. No data in response.", err);
+//             return;
+//         } else if (body.hasOwnProperty('error') && body.error != 0) {
+//             platform.log("An error was encountered while requesting a list of devices while interrogating power status. Verify your configuration options. Response was [%s]", JSON.stringify(body));
+//             if ([401, 402].indexOf(parseInt(body.error)) !== -1) {
+//                 platform.relogin();
+//             }
+//             callback('An error was encountered while requesting a list of devices to interrogate power status for your device');
+//             return;
+//         }
+
+//         body = body.devicelist;
+
+//         if (body.length < 1) {
+//             callback('An error was encountered while requesting a list of devices to interrogate power status for your device');
+//             accessory.reachable = false;
+//             return;
+//         }
+
+//         let deviceId = accessory.context.deviceId;
+
+//         if (accessory.context.switches > 1) {
+//             deviceId = deviceId.replace("CH" + accessory.context.channel, "");
+//         }
+
+//         let filteredResponse = body.filter(device => (device.deviceid === deviceId));
+
+//         if (filteredResponse.length === 1) {
+
+//             let device = filteredResponse[0];
+
+//             if (device.deviceid === deviceId) {
+
+//                 if (device.online !== true) {
+//                     accessory.reachable = false;
+//                     platform.log("Device [%s] was reported to be offline by the API", accessory.displayName);
+//                     callback('API reported that [%s] is not online', device.name);
+//                     return;
+//                 }
+
+//                 if (accessory.context.switches > 1) {
+//                     if (device.params.switches[accessory.context.channel - 1].switch === 'on') {
+//                         accessory.reachable = true;
+//                         platform.log('API reported that [%s] CH %s is On', device.name, accessory.context.channel);
+//                         callback(null, 1);
+//                         return;
+//                     } else if (device.params.switches[accessory.context.channel - 1].switch === 'off') {
+//                         accessory.reachable = true;
+//                         platform.log('API reported that [%s] CH %s is Off', device.name, accessory.context.channel);
+//                         callback(null, 0);
+//                         return;
+//                     } else {
+//                         accessory.reachable = false;
+//                         platform.log('API reported an unknown status for device [%s]', accessory.displayName);
+//                         callback('API returned an unknown status for device ' + accessory.displayName);
+//                         return;
+//                     }
+
+//                 } else {
+//                     if (device.params.switch === 'on') {
+//                         accessory.reachable = true;
+//                         platform.log('API reported that [%s] is On', device.name);
+//                         callback(null, 1);
+//                         return;
+//                     } else if (device.params.switch === 'off') {
+//                         accessory.reachable = true;
+//                         platform.log('API reported that [%s] is Off', device.name);
+//                         callback(null, 0);
+//                         return;
+//                     } else {
+//                         accessory.reachable = false;
+//                         platform.log('API reported an unknown status for device [%s]', accessory.displayName);
+//                         callback('API returned an unknown status for device ' + accessory.displayName);
+//                         return;
+//                     }
+
+//                 }
+
+//             }
+
+//         } else if (filteredResponse.length > 1) {
+//             // More than one device matches our Device ID. This should not happen.
+//             platform.log("ERROR: The response contained more than one device with Device ID [%s]. Filtered response follows.", device.deviceid);
+//             platform.log(filteredResponse);
+//             callback("The response contained more than one device with Device ID " + device.deviceid);
+
+//         } else if (filteredResponse.length < 1) {
+
+//             // The device is no longer registered
+
+//             platform.log("Device [%s] did not exist in the response.", accessory.displayName);
+//             //platform.removeAccessory(accessory);
+
+//         }
+
+//     });
+
+// };
+//TODO: END REMOVE
 
 eWeLink.prototype.getFanLightState = function (accessory, callback) {
     let platform = this;
@@ -1677,6 +1827,8 @@ eWeLink.prototype.setHumidityState = function (accessory, value, callback) {
     callback();
 };
 
+//TODO: CONSIDER DELAY SEND
+//TODO: REMOVE CODE
 eWeLink.prototype.sendWebSocketMessage = function (string, callback) {
     let platform = this;
 
@@ -1725,12 +1877,16 @@ eWeLink.prototype.sendWebSocketMessage = function (string, callback) {
         platform.delaySend += delayOffset;
     }
 };
+//TODO: END REMOVE CODE
 
 eWeLink.prototype.setPowerState = function (accessory, isOn, callback) {
     let platform = this;
-    let options = {};
+
+    //TODO: Remove commented out lines
+
+    // let options = {};
     let deviceId = accessory.context.deviceId;
-    options.protocolVersion = 13;
+    // options.protocolVersion = 13;
 
     let targetState = 'off';
 
@@ -1741,8 +1897,8 @@ eWeLink.prototype.setPowerState = function (accessory, isOn, callback) {
     platform.log("Setting power state to [%s] for device [%s]", targetState, accessory.displayName);
 
     let payload = {};
-    payload.action = 'update';
-    payload.userAgent = 'app';
+    // payload.action = 'update';
+    // payload.userAgent = 'app';
     payload.params = {};
     if (accessory.context.switches > 1) {
         deviceId = deviceId.replace("CH" + accessory.context.channel, "");
@@ -1752,19 +1908,31 @@ eWeLink.prototype.setPowerState = function (accessory, isOn, callback) {
     } else {
         payload.params.switch = targetState;
     }
-    payload.apikey = '' + accessory.context.apiKey;
-    payload.deviceid = '' + deviceId;
+    // payload.apikey = '' + accessory.context.apiKey;
+    // payload.deviceid = '' + deviceId;
 
-    payload.sequence = platform.getSequence();
+    // payload.sequence = platform.getSequence();
 
-    let string = JSON.stringify(payload);
+    // let string = JSON.stringify(payload);
     // platform.log( string );
 
-    platform.sendWebSocketMessage(string, callback);
+    // platform.sendWebSocketMessage(string, callback);
+
+    platform.wsc.updateDeviceStatus(deviceId, payload.params)
+        .then(result => {
+            platform.log('setPowerState result: %o', result);
+            callback(null, isOn);
+        }).catch(err => {
+            platform.log('setPowerState error: %o', err);
+            callback(err);
+        });
 };
 
 
 eWeLink.prototype.setFanLightState = function (accessory, isOn, callback) {
+
+    //TODO: REMOVE COMMENTED OUT CODE
+
     let platform = this;
     let options = {};
     let deviceId = accessory.context.deviceId;
@@ -1795,6 +1963,7 @@ eWeLink.prototype.setFanLightState = function (accessory, isOn, callback) {
     // platform.log( string );
 
     platform.sendWebSocketMessage(string, callback);
+
 
 };
 
