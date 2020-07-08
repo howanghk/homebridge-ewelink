@@ -139,6 +139,79 @@ The device is automatically reconfigured to turn off all options (power-on respo
     }
 ```
 
+### Advanced Configuration Modes
+
+There are a number of different mechanisms which can be used to communicate with Sonoff devices:
+1. A REST API, communicating with a server over the internet
+2. A WebSockets API, providing two-way communication with a server over the internet
+3. A LAN mode API, which uses a combination of DNS-SD and REST to communicate with devices directly without requiring internet access (although this is only supported by a small set of devices).
+
+The default configuration of this plugin will use the following:
+* REST API (1), for: 
+    * Login
+    * Listing devices
+    * Getting device state
+* WebSockets API (2), for:
+    * Sending device state updates
+    * Listening for device state notifications (e.g. if buttons are pressed directly on the device so homebridge is also updated)
+
+There are some feature flags available which allow for this behaviour to be changed. These are considered to be experimental and are included to allow wider testing than I alone am able to perform. 
+
+#### Web Socket Client Settings
+
+There are two settings available which impact the behaviour of the WebSocketClient. 
+
+The first is `experimentalWebSocketClient`, when set to true this will allow device state to be loaded using the WebSocket connection. Based on issue [#74](https://github.com/howanghk/homebridge-ewelink/issues/74) this is the preferred way to get status updates. After further testing this should become the default mode. 
+
+```json
+{
+        "platform" : "eWeLink",
+        "experimentalWebSocketClient": true,
+
+        "rest of platform": "config here"
+}
+```
+
+The second is `disableWebSocket`, when set to true this will disable the WebSocket client entirely. This is part of a future direction to allow the option to use Sonoff devices which support Lan mode without requiring a connection to the Ewelink servers. 
+
+```json
+{
+        "platform" : "eWeLink",
+        "disableWebSocket": true,
+
+        "rest of platform": "config here"
+}
+```
+
+#### Lan Client
+
+Some newer Sonoff devices, when on firmare versions 3.2 and later, have a Lan mode which allows the Ewelink app to control the devices without internet access. This does still however require this plugin to have at least logged in and loaded a device list from the internet to get the device keys for performing encryption and decryption.
+
+There are two forms that this client configuration can take:
+1. basic, which just takes a boolean to enable it. 
+```json
+    "experimentalLanClient": true
+```
+2. advanced, which takes in an object to allow extra settings to be enabled. This is only required when you have debug logging enabled and are trying to diagnose issues with the DNS-SD aspects of the plugin.  
+```json
+    "experimentalLanClient": {
+        "logDnsResponses": true
+    },
+```
+
+#### Fake Devices
+
+There is one last advanced setting which is useful for development purposes. I did not have a Sonoff fan controller, but by looking at the code which was already in this plugin it looked just to be a regular 4 switch device. The `fakeFan` setting can be used with a `deviceId` to tell the plugin that the 4 switch device should be identified as a fan. 
+
+```json
+{
+        "platform" : "eWeLink",
+        "fakeFan": "1000abcdef",
+
+        "rest of platform": "config here"
+}
+```
+
 ## A note on login session
 
 An authentication token is generated every time your device's app logs in to the eWeLink service.
