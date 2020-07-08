@@ -1,92 +1,122 @@
 {
-  "pluginAlias": "eWeLink",
-  "pluginType": "platform",
-  "headerDisplay": "Homebridge plugin to control Sonoff relays with OEM firmware. It uses the same API as the iOS app to communicate with your devices.",
-  "footerDisplay": "If you have any suggestions, please open an issue on [GitHub](https://github.com/howanghk/homebridge-ewelink/issues).",
-  "schema": {
-    "type": "object",
-    "properties": {
-      "name": {
-        "type": "string",
-        "default": "eWeLink",
-        "title": "Name"
-      },
-      "countryCode": {
-        "title": "2 letters countryCode from where you are (based on your public IP)",
-        "placeholder": "1",
-        "type": "integer",
-        "maximum": 2
-      },
-      "phoneNumber": {
-        "type": "string",
-        "title": "Phone Number",
-        "placeholder": "123456789"
-      },
-      "password": {
-        "type": "string",
-        "title": "Password",
-        "placeholder": "your-login-password"
-      },
-      "imei": {
-        "type": "string",
-        "title": "IMEI",
-        "placeholder": "01234567-89AB-CDEF-0123-456789ABCDEF"
-      },
-      "groups": {
-        "type": "array",
-        "title": "Groups",
-        "description": "You can group channels of multi-switch model to simulate another accessory instead of having each switch separately. Currently, only blind (WindowCovering) is supported.",
-        "items": {
-          "type": "object",
-          "properties": {
-            "type": {
-              "type": "string",
-              "title": "type",
-              "default": "blind",
-              "description": "An explanation about the purpose of this instance."
-            },
-            "deviceId": {
-              "type": "string",
-              "title": "Device ID",
-              "description": "Device ID from eWelink app."
-            },
-            "relay_up": {
-              "type": "number",
-              "title": "Relay Up",
-              "description": "Relay number for the UP motor."
-            },
-            "relay_down": {
-              "type": "number",
-              "title": "Relay Down",
-              "description": "Relay number for the DOWN motor."
-            },
-            "time_up": {
-              "type": "number",
-              "title": "Time Up",
-              "description": "Total time in second from complete closing to full opening."
-            },
-            "time_down": {
-              "type": "number",
-              "title": "Time Down",
-              "description": "Total time in second from complete opening to full closing."
-            },
-            "time_botton_margin_up": {
-              "type": "number",
-              "title": "Time Bottom Margin Up"
-            },
-            "time_botton_margin_down": {
-              "type": "number",
-              "title": "Time Bottom Margin Down"
-            },
-            "handle_api_changes": {
-              "type": "boolean",
-              "default": true,
-              "title": "Handle API Changes",
-              "description": "In case you don't want group respond to eWeLink App changes. Default true."
+   "pluginAlias":"eWeLink",
+   "pluginType":"platform",
+   "headerDisplay":"Homebridge plugin to control Sonoff relays with OEM firmware. It uses the same API as the iOS app to communicate with your devices.",
+   "footerDisplay":"If you have any suggestions, please open an issue on [GitHub](https://github.com/howanghk/homebridge-ewelink/issues).",
+   "schema":{
+      "type":"object",
+      "properties":{
+         "name":{
+            "type":"string",
+            "title":"Name",
+            "default":"eWeLink"
+         },
+         "countryCode":{
+            "type":"integer",
+            "title":"Country Code",
+            "description":"The telephone country code from where you are (based on your public IP).",
+            "placeholder":"1",
+            "maximum":999
+         },
+         "phoneNumber":{
+            "type":"string",
+            "title":"Phone Number",
+            "description":"The phone number linked to your eWeLink account. Leave blank if you use your email instead.",
+            "placeholder":""
+         },
+         "email":{
+            "type":"string",
+            "title":"Email Address",
+            "description":"The email address linked to your eWeLink account. Leave blank if you use your phone number instead.",
+            "placeholder":""
+         },
+         "password":{
+            "type":"string",
+            "title":"Password",
+            "placeholder":"",
+            "description":"The password for your eWeLink account."
+         },
+         "imei":{
+            "type":"string",
+            "title":"IMEI",
+            "default":"01234567-89AB-CDEF-0123-456789ABCDEF",
+            "description":"Only change this if you need to."
+         },
+         "groups":{
+            "type":"array",
+            "title":"Groups",
+            "description":"You can group channels of multi-switch devices to simulate another accessory instead of having each switch separately. Currently, only 'blind' (WindowCovering) is supported.",
+            "items":{
+               "type":"object",
+               "properties":{
+                  "type":{
+                     "type":"string",
+                     "title":"Type",
+                     "default":"blind",
+                     "description":"A description of this group. Currently must be 'blind'."
+                  },
+                  "deviceId":{
+                     "type":"string",
+                     "title":"Device ID",
+                     "description":"Device ID from your eWelink app."
+                  },
+                  "relay_up":{
+                     "type":"number",
+                     "title":"Relay Up",
+                     "description":"Relay number for the up motor."
+                  },
+                  "relay_down":{
+                     "type":"number",
+                     "title":"Relay Down",
+                     "description":"Relay number for the down motor."
+                  },
+                  "time_up":{
+                     "type":"number",
+                     "title":"Time Up",
+                     "description":"Total time in seconds to fully open blinds (from closed)."
+                  },
+                  "time_down":{
+                     "type":"number",
+                     "title":"Time Down",
+                     "description":"Total time in seconds to completely close blinds (from open)."
+                  },
+                  "time_botton_margin_up":{
+                     "type":"number",
+                     "title":"Time Bottom Margin Up",
+                     "description":"Please refer <a href=\"https://github.com/manolab/homebridge-sonoff-stateful-blinds#readme\" target=\"_blank\">to this link</a> for more information about this setting."
+                  },
+                  "time_botton_margin_down":{
+                     "type":"number",
+                     "title":"Time Bottom Margin Down",
+                     "description":"Please refer <a href=\"https://github.com/manolab/homebridge-sonoff-stateful-blinds#readme\" target=\"_blank\">to this link</a> for more information about this setting."
+                  },
+                  "handle_api_changes":{
+                     "type":"boolean",
+                     "default":true,
+                     "title":"Handle API Changes",
+                     "description":"Uncheck if you don't want this group to respond to eWeLink App changes."
+                  }
+               }
             }
-          }
-        }
-      }
-    }
-  }
+         }
+      },
+      "oneOf":[
+         {
+            "required":[
+               "email"
+            ]
+         },
+         {
+            "required":[
+               "phoneNumber"
+            ]
+         }
+      ],
+      "required":[
+         "name",
+         "countryCode",
+         "password",
+         "imei"
+      ]
+   }
 }

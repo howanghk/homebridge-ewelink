@@ -7,6 +7,7 @@ let request = require('request-json');
 
 let ApiClient = require('./lib/api');
 
+
 let Accessory, Service, Characteristic, UUIDGen;
 
 module.exports = function (homebridge) {
@@ -390,6 +391,14 @@ eWeLink.prototype.addAccessory = function (device, deviceId = null, services = {
 
     accessory.reachable = device.online === 'true';
 
+    /* Add a lan client and add it to the context, if the feature is enabled  */
+    if (this.config['experimentalLanClient']) {
+        this.log.debug('Pre lan client config (addAccessory): %o', device)
+        const lanClient = new LanClient(device, this.log);
+        lanClient.start();
+        accessory.context.lanClient = lanClient;
+    }
+
     if (services.fan) {
         var fan = accessory.addService(Service.Fanv2, device.name);
         var light = accessory.addService(Service.Lightbulb, device.name + ' Light');
@@ -476,7 +485,7 @@ eWeLink.prototype.addAccessory = function (device, deviceId = null, services = {
             })
             .on('get', function (callback) {
                 /* Try the API */
-                platform.getSwitchState(accessory, callback);
+                platform.getSwitchState(accessory, callback)
             });
     }
     if (services.thermostat) {
@@ -1158,7 +1167,6 @@ eWeLink.prototype.setFanLightState = function (accessory, isOn, callback) {
             platform.log('setFanLightState error: %o', err);
             callback(err);
         });
-
 
 };
 
